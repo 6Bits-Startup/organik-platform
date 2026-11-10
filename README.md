@@ -1,7 +1,7 @@
 # OrganiK Platform (web-application-backend)
 
 ## Overview
-1
+
 OrganiK Platform is the Spring Boot backend of OrganiK, a web application that helps minimarkets of organic products control their inventory, expiration dates, supply and conservation conditions, and connects them with their suppliers. The project is structured around Domain-Driven Design (DDD), organized into bounded contexts (`iam`, `suppliers`, `requisition`, `procurements`, `conservation` and `shared`), using application-layer command/query contracts, a shared `Result` abstraction for command outcomes, and JPA persistence.
 
 The backend serves the OrganiK web application ([organik-website-v2](https://github.com/5Bits-OrganiK/organik-website-v2)). It is built incrementally: the `iam` bounded context is complete up to its REST API, while the other bounded contexts currently contain their domain model and persistence mapping.
