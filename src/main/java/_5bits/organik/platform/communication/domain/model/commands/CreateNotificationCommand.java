@@ -10,8 +10,14 @@ public record CreateNotificationCommand(
         NotificationTitle title
 ) {
     public CreateNotificationCommand {
-        if (type == null || severity == null || title == null) {
-            throw new IllegalArgumentException("All notification parameters are required");
+        if (type == null) {
+            throw new IllegalArgumentException("NotificationType cannot be null");
+        }
+        if (severity == null) {
+            throw new IllegalArgumentException("Severity cannot be null");
+        }
+        if (title == null) {
+            throw new IllegalArgumentException("NotificationTitle cannot be null");
         }
     }
 }
