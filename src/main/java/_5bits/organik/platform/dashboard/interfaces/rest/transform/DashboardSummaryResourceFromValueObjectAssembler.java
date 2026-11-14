@@ -12,6 +12,7 @@ public class DashboardSummaryResourceFromValueObjectAssembler {
                 summary.minimarketId().value(),
                 summary.totalStockLots(),
                 summary.lowStockLots(),
+                summary.expirationWarningDays(),
                 summary.expiringSoonLots(),
                 summary.pendingShipmentOrders(),
                 summary.pendingSupplyRequests(),

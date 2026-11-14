@@ -6,6 +6,7 @@ package _5bits.organik.platform.dashboard.domain.model.valueobjects;
  * @param minimarketId minimarket identifier
  * @param totalStockLots number of stock lots
  * @param lowStockLots stock lots at or below their minimum stock
+ * @param expirationWarningDays days of the warning period used to count the lots about to expire
  * @param expiringSoonLots stock lots that expire within the warning period
  * @param pendingShipmentOrders shipment orders waiting for a decision
  * @param pendingSupplyRequests supply requests waiting for an answer
@@ -15,6 +16,7 @@ public record DashboardSummary(
         MinimarketId minimarketId,
         long totalStockLots,
         long lowStockLots,
+        int expirationWarningDays,
         long expiringSoonLots,
         long pendingShipmentOrders,
         long pendingSupplyRequests,

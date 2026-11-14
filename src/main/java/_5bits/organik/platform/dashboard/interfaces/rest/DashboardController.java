@@ -37,7 +37,7 @@ public class DashboardController {
 
     @GetMapping
     @Operation(summary = "Get dashboard summary",
-            description = "Retrieves the operational summary of a minimarket: stock, expirations, pending orders, pending requests and unread notifications.")
+            description = "Retrieves the operational summary of a minimarket: stock, expirations, pending orders, pending requests and unread notifications. When userId is sent, the lots about to expire are counted with the warning days of that user profile.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Dashboard summary retrieved successfully",
                     content = @Content(schema = @Schema(implementation = DashboardSummaryResource.class))),
@@ -47,13 +47,16 @@ public class DashboardController {
     public ResponseEntity<?> getDashboardSummary(
             @RequestParam(required = false)
             @Parameter(description = "Minimarket identifier", example = "mm-vida-verde", required = true)
-            String minimarketId
+            String minimarketId,
+            @RequestParam(required = false)
+            @Parameter(description = "IAM user that views the dashboard", example = "1")
+            Long userId
     ) {
         if (minimarketId == null) {
             var error = ApplicationError.validationError("minimarketId", "Query parameter minimarketId is required");
             return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
         }
-        var summary = dashboardQueryService.handle(new GetDashboardSummaryByMinimarketIdQuery(new MinimarketId(minimarketId)));
+        var summary = dashboardQueryService.handle(new GetDashboardSummaryByMinimarketIdQuery(new MinimarketId(minimarketId), userId));
         return ResponseEntity.ok(DashboardSummaryResourceFromValueObjectAssembler.toResourceFromValueObject(summary));
     }
 }

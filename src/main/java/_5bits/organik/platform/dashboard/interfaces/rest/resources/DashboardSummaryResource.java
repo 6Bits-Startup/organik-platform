@@ -13,7 +13,9 @@ public record DashboardSummaryResource(
     long totalStockLots,
     @Schema(description = "Stock lots at or below their minimum stock", example = "2")
     long lowStockLots,
-    @Schema(description = "Stock lots that expire within the next 15 days", example = "3")
+    @Schema(description = "Days of the warning period used to count the lots about to expire", example = "15")
+    int expirationWarningDays,
+    @Schema(description = "Stock lots that expire within the warning period", example = "3")
     long expiringSoonLots,
     @Schema(description = "Shipment orders waiting for a decision", example = "1")
     long pendingShipmentOrders,
