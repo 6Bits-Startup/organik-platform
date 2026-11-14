@@ -1,6 +1,7 @@
 package _5bits.organik.platform.products.application.commandservices;
 
 import _5bits.organik.platform.products.domain.model.commands.CreateCategoryCommand;
+import _5bits.organik.platform.products.domain.model.commands.SeedCategoriesCommand;
 import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
 
@@ -16,4 +17,11 @@ public interface CategoryCommandService {
      * @return the identifier of the affected Category, or an application error
      */
     Result<Long, ApplicationError> handle(CreateCategoryCommand command);
+
+    /**
+     * Handles the default categories seeding command.
+     *
+     * @param command category-seeding command
+     */
+    void handle(SeedCategoriesCommand command);
 }

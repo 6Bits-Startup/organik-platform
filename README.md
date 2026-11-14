@@ -99,6 +99,8 @@ docker build -t organik-platform .
 docker run -p 8080:8080 --env-file .env organik-platform
 ```
 
+On start-up the application seeds the IAM roles and the default product categories (`fruits-vegetables`, `dairy`, `grains`, `beverages`, `bakery`, `frozen`), whose names the web application uses to translate them.
+
 ### 3) API Documentation
 
 - Scalar API Reference: `http://localhost:8080/scalar`
