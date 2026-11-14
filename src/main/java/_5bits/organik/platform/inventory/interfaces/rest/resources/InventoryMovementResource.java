@@ -2,20 +2,24 @@ package _5bits.organik.platform.inventory.interfaces.rest.resources;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.Instant;
+import java.util.Date;
 
-@Schema(description = "Response resource representing an inventory movement")
+/**
+ * Response resource representing an inventory movement.
+ */
+@Schema(name = "InventoryMovementResponse", description = "Inventory movement information response")
 public record InventoryMovementResource(
-        @Schema(description = "Persistent identifier", example = "1")
-        Long id,
-        @Schema(description = "Stock lot affected by the movement", example = "1")
-        Long stockLotId,
-        @Schema(description = "Type of movement", example = "WASTE")
-        String type,
-        @Schema(description = "Units moved", example = "3")
-        Integer quantity,
-        @Schema(description = "Reason for the movement", example = "Damaged during display")
-        String reason,
-        @Schema(description = "Moment the movement was registered", example = "2026-10-30T15:20:00Z")
-        Instant registeredAt) {
+    @Schema(description = "Inventory movement unique identifier", example = "1")
+    Long id,
+    @Schema(description = "Stock lot affected by the movement", example = "1")
+    Long stockLotId,
+    @Schema(description = "Movement type", example = "EXIT")
+    String type,
+    @Schema(description = "Quantity of the movement", example = "12")
+    Integer quantity,
+    @Schema(description = "Reason of the movement", example = "Damaged packaging")
+    String reason,
+    @Schema(description = "Registration date")
+    Date registeredAt
+) {
 }

@@ -1,17 +1,17 @@
 package _5bits.organik.platform.inventory.application.internal.commandservices;
 
-import _5bits.organik.platform.inventory.application.commandservices.OfferCommandFailure;
 import _5bits.organik.platform.inventory.application.commandservices.OfferCommandService;
 import _5bits.organik.platform.inventory.domain.model.aggregates.Offer;
 import _5bits.organik.platform.inventory.domain.model.commands.CreateOfferCommand;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.OfferRepository;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.StockLotRepository;
+import _5bits.organik.platform.inventory.domain.repositories.OfferRepository;
+import _5bits.organik.platform.inventory.domain.repositories.StockLotRepository;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
+/**
+ * Application service that handles Offer commands.
+ */
 @Service
 public class OfferCommandServiceImpl implements OfferCommandService {
     private final OfferRepository offerRepository;
@@ -23,25 +23,19 @@ public class OfferCommandServiceImpl implements OfferCommandService {
     }
 
     @Override
-    @Transactional
-    public Result<Offer, OfferCommandFailure> handle(CreateOfferCommand command) {
-        var stockLot = stockLotRepository.findById(command.stockLotId().value()).orElse(null);
-        if (stockLot == null) {
-            log.warn("Offer rejected, stock lot not found: stockLotId={}", command.stockLotId().value());
-            return Result.failure(new OfferCommandFailure.StockLotNotFound());
+    public Result<Long, ApplicationError> handle(CreateOfferCommand command) {
+        var stockLot = stockLotRepository.findById(command.stockLotId().value());
+        if (stockLot.isEmpty())
+            return Result.failure(ApplicationError.notFound("StockLot", command.stockLotId().value().toString()));
+        if (command.endsOn().isAfter(stockLot.get().getExpirationDate().value()))
+            return Result.failure(ApplicationError.businessRuleViolation("offer-period",
+                    "The offer cannot end after the expiration date of the stock lot"));
+        var offer = new Offer(command);
+        try {
+            offer = offerRepository.save(offer);
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("create-offer", e.getMessage()));
         }
-        if (command.endsOn().isAfter(stockLot.getExpirationDate().value())) {
-            log.warn("Offer rejected, ends after lot expiration: stockLotId={}, endsOn={}, expirationDate={}",
-                    command.stockLotId().value(), command.endsOn(), stockLot.getExpirationDate().value());
-            return Result.failure(new OfferCommandFailure.EndsAfterExpiration());
-        }
-        var createdOffer = offerRepository.save(new Offer(command));
-        log.info("Offer created: id={}, stockLotId={}, price={}, startsOn={}, endsOn={}",
-                createdOffer.getId(),
-                command.stockLotId().value(),
-                command.price().value(),
-                command.startsOn(),
-                command.endsOn());
-        return Result.success(createdOffer);
+        return Result.success(offer.getId());
     }
 }

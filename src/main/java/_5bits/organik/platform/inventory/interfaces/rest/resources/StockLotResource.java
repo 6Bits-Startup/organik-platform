@@ -4,22 +4,26 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
 
-@Schema(description = "Response resource representing a stock lot")
+/**
+ * Response resource representing a stock lot.
+ */
+@Schema(name = "StockLotResponse", description = "Stock lot information response")
 public record StockLotResource(
-        @Schema(description = "Persistent identifier", example = "1")
-        Long id,
-        @Schema(description = "Minimarket that owns the stock lot", example = "mm-vida-verde")
-        String minimarketId,
-        @Schema(description = "Product stored in the lot", example = "prd-quinoa-blanca")
-        String productId,
-        @Schema(description = "Lot code", example = "LOT-2026-0412")
-        String lotCode,
-        @Schema(description = "Units currently in the lot", example = "40")
-        Integer quantity,
-        @Schema(description = "Minimum stock threshold", example = "10")
-        Integer minimumStock,
-        @Schema(description = "Date until which the lot can be sold", example = "2026-12-15")
-        LocalDate expirationDate,
-        @Schema(description = "Whether the lot is at or below its minimum stock", example = "false")
-        boolean lowStock) {
+    @Schema(description = "Stock lot unique identifier", example = "1")
+    Long id,
+    @Schema(description = "Minimarket that owns the lot", example = "mm-vida-verde")
+    String minimarketId,
+    @Schema(description = "Product of the lot", example = "ORG-01")
+    String productId,
+    @Schema(description = "Lot code", example = "LT-204")
+    String lotCode,
+    @Schema(description = "Current quantity", example = "248")
+    Integer quantity,
+    @Schema(description = "Minimum stock", example = "20")
+    Integer minimumStock,
+    @Schema(description = "Expiration date", example = "2026-12-20")
+    LocalDate expirationDate,
+    @Schema(description = "Whether the lot is at or below its minimum stock", example = "false")
+    boolean lowStock
+) {
 }

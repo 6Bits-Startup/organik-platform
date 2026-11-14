@@ -2,14 +2,18 @@ package _5bits.organik.platform.inventory.interfaces.rest;
 
 import _5bits.organik.platform.inventory.application.commandservices.StockLotCommandService;
 import _5bits.organik.platform.inventory.application.queryservices.StockLotQueryService;
+import _5bits.organik.platform.inventory.domain.model.aggregates.StockLot;
 import _5bits.organik.platform.inventory.domain.model.queries.GetAllStockLotsByMinimarketIdQuery;
 import _5bits.organik.platform.inventory.domain.model.queries.GetStockLotByIdQuery;
+import _5bits.organik.platform.inventory.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.CreateStockLotResource;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.StockLotResource;
 import _5bits.organik.platform.inventory.interfaces.rest.transform.CreateStockLotCommandFromResourceAssembler;
-import _5bits.organik.platform.inventory.interfaces.rest.transform.InventoryValueObjectFromStringAssembler;
-import _5bits.organik.platform.inventory.interfaces.rest.transform.ResponseEntityFromStockLotCommandResultAssembler;
-import _5bits.organik.platform.inventory.interfaces.rest.transform.ResponseEntityFromStockLotQueryResultAssembler;
+import _5bits.organik.platform.inventory.interfaces.rest.transform.StockLotResourceFromEntityAssembler;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
+import _5bits.organik.platform.shared.application.result.Result;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ProblemDetailFromApplicationErrorAssembler;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -18,115 +22,87 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.regex.Pattern;
-
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-@Slf4j
+/**
+ * REST controller that exposes stock lot endpoints.
+ */
 @RestController
 @RequestMapping(value = "/api/v1/stock-lots", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Stock Lots", description = "Endpoints for stock lots")
+@Tag(name = "Stock Lots", description = "Stock lot management endpoints")
 public class StockLotsController {
-    private static final int MAX_QUERY_PARAM_LENGTH = 256;
-    private static final Pattern ID_QUERY_PARAM_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
-
     private final StockLotCommandService stockLotCommandService;
     private final StockLotQueryService stockLotQueryService;
-    private final MessageSource messageSource;
 
-    public StockLotsController(StockLotCommandService stockLotCommandService,
-                               StockLotQueryService stockLotQueryService,
-                               MessageSource messageSource) {
+    public StockLotsController(StockLotCommandService stockLotCommandService, StockLotQueryService stockLotQueryService) {
         this.stockLotCommandService = stockLotCommandService;
         this.stockLotQueryService = stockLotQueryService;
-        this.messageSource = messageSource;
     }
 
-    @Operation(
-            summary = "Register a stock lot",
-            description = "Registers a stock lot of a product with its quantity, minimum stock and expiration date",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Stock lot registration request",
-                    content = @Content(schema = @Schema(implementation = CreateStockLotResource.class))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Stock lot registered",
-                    content = @Content(schema = @Schema(implementation = StockLotResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "409", description = "Conflict - lot code already registered for the minimarket",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @PostMapping
+    @Operation(summary = "Register a stock lot", description = "Registers a lot of a product received by a minimarket.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Stock lot created successfully",
+                    content = @Content(schema = @Schema(implementation = StockLotResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "409", description = "Conflict - resource already exists"),
+            @ApiResponse(responseCode = "404", description = "Referenced resource not found")
+    })
     public ResponseEntity<?> createStockLot(@Valid @RequestBody CreateStockLotResource resource) {
-        log.debug("POST /api/v1/stock-lots – minimarketId={}, lotCode={}", resource.minimarketId(), resource.lotCode());
-        var result = stockLotCommandService
-                .handle(CreateStockLotCommandFromResourceAssembler.toCommandFromResource(resource));
-        var response = ResponseEntityFromStockLotCommandResultAssembler.toResponseEntityFromResult(result, messageSource);
-        log.debug("POST /api/v1/stock-lots – response status={}", response.getStatusCode());
-        return response;
+        var command = CreateStockLotCommandFromResourceAssembler.toCommandFromResource(resource);
+        var result = stockLotCommandService.handle(command)
+                .flatMap(stockLotId -> stockLotQueryService.handle(new GetStockLotByIdQuery(stockLotId))
+                        .<Result<StockLot, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("StockLot", stockLotId.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                StockLotResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
     }
 
-    @Operation(
-            summary = "Get a stock lot by ID",
-            description = "Gets a stock lot by the provided ID")
+    @GetMapping("/{stockLotId}")
+    @Operation(summary = "Get stock lot by ID", description = "Retrieves a specific stock lot by its unique identifier.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Stock lot found",
                     content = @Content(schema = @Schema(implementation = StockLotResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Stock lot not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(responseCode = "404", description = "Stock lot not found")
     })
-    @GetMapping("{id}")
-    public ResponseEntity<?> getStockLotById(@PathVariable Long id) {
-        log.debug("GET /api/v1/stock-lots/{}", id);
-        if (id == null || id <= 0) {
-            return ResponseEntityFromStockLotQueryResultAssembler.badRequest(messageSource, "stockLot.error.id.invalid");
-        }
-        var stockLot = stockLotQueryService.handle(new GetStockLotByIdQuery(id));
+    public ResponseEntity<?> getStockLotById(
+            @PathVariable
+            @Parameter(description = "Stock lot unique identifier", example = "1", required = true)
+            Long stockLotId
+    ) {
+        var stockLot = stockLotQueryService.handle(new GetStockLotByIdQuery(stockLotId));
         if (stockLot.isEmpty()) {
-            log.debug("Stock lot not found for id={}", id);
-            return ResponseEntityFromStockLotQueryResultAssembler.notFound(messageSource, "stockLot.error.notFoundById", id);
+            var error = ApplicationError.notFound("StockLot", stockLotId.toString());
+            return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
         }
-        return ResponseEntityFromStockLotQueryResultAssembler.toResponseEntityFromStockLot(stockLot.orElseThrow());
+        return ResponseEntity.ok(StockLotResourceFromEntityAssembler.toResourceFromEntity(stockLot.get()));
     }
 
-    @Operation(
-            summary = "Get the stock lots of a minimarket",
-            description = "Gets all the stock lots registered by the provided minimarket")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Stock lots found",
-                    content = @Content(schema = @Schema(implementation = StockLotResource[].class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @GetMapping
-    public ResponseEntity<?> getStockLotsByMinimarketId(
-            @Parameter(name = "minimarketId", description = "Minimarket ID",
-                    schema = @Schema(maxLength = 256, pattern = "^[a-zA-Z0-9_-]+$"))
-            @RequestParam(name = "minimarketId", required = false) String minimarketId) {
-        if (minimarketId == null || minimarketId.isBlank()) {
-            log.warn("GET /api/v1/stock-lots – missing or blank required parameter: minimarketId");
-            return ResponseEntityFromStockLotQueryResultAssembler.badRequest(messageSource, "stockLot.error.query.missing");
+    @Operation(summary = "Get stock lots", description = "Retrieves the stock lots filtered by minimarketId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Stock lots retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = StockLotResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
+    })
+    public ResponseEntity<?> getStockLots(
+            @RequestParam(required = false)
+            @Parameter(description = "Minimarket identifier", example = "mm-vida-verde")
+            String minimarketId
+    ) {
+        if (minimarketId != null) {
+            var stockLots = stockLotQueryService.handle(new GetAllStockLotsByMinimarketIdQuery(new MinimarketId(minimarketId)));
+            return ResponseEntity.ok(stockLots.stream().map(StockLotResourceFromEntityAssembler::toResourceFromEntity).toList());
         }
-        if (isInvalidQueryParam(minimarketId)) {
-            log.warn("Rejected invalid query param minimarketId");
-            return ResponseEntityFromStockLotQueryResultAssembler.badRequest(messageSource, "inventory.error.minimarketId.invalid");
-        }
-        log.debug("GET /api/v1/stock-lots?minimarketId={}", minimarketId);
-        var query = new GetAllStockLotsByMinimarketIdQuery(
-                InventoryValueObjectFromStringAssembler.toMinimarketIdFromString(minimarketId));
-        return ResponseEntityFromStockLotQueryResultAssembler.toResponseEntityFromList(stockLotQueryService.handle(query));
-    }
-
-    private boolean isInvalidQueryParam(String value) {
-        return value.length() > MAX_QUERY_PARAM_LENGTH || !ID_QUERY_PARAM_PATTERN.matcher(value).matches();
+        var error = ApplicationError.validationError("minimarketId", "Query parameter minimarketId is required");
+        return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
     }
 }

@@ -1,10 +1,13 @@
 package _5bits.organik.platform.inventory.interfaces.rest.transform;
 
 import _5bits.organik.platform.inventory.domain.model.commands.CreateOfferCommand;
+import _5bits.organik.platform.inventory.interfaces.rest.resources.CreateOfferResource;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.OfferPrice;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.StockLotId;
-import _5bits.organik.platform.inventory.interfaces.rest.resources.CreateOfferResource;
 
+/**
+ * Assembler that converts a {@link CreateOfferResource} into a {@link CreateOfferCommand}.
+ */
 public class CreateOfferCommandFromResourceAssembler {
     public static CreateOfferCommand toCommandFromResource(CreateOfferResource resource) {
         return new CreateOfferCommand(

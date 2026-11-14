@@ -5,50 +5,45 @@ import _5bits.organik.platform.inventory.domain.model.valueobjects.MovementReaso
 import _5bits.organik.platform.inventory.domain.model.valueobjects.MovementType;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.Quantity;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.StockLotId;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.MovementReasonAttributeConverter;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.QuantityAttributeConverter;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.StockLotIdAttributeConverter;
-import jakarta.persistence.*;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
+import java.util.Date;
+import java.util.Objects;
 
+/**
+ * Inventory movement aggregate root.
+ * <p>
+ * Records an entry, exit, adjustment or waste applied to a stock lot.
+ * </p>
+ */
 @Getter
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-public class InventoryMovement {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class InventoryMovement extends AbstractDomainAggregateRoot<InventoryMovement> {
     private Long id;
-
-    @Column(nullable = false, updatable = false)
-    @Convert(converter = StockLotIdAttributeConverter.class)
     private StockLotId stockLotId;
-
-    @Column(nullable = false, updatable = false)
-    @Enumerated(EnumType.STRING)
     private MovementType type;
-
-    @Column(nullable = false, updatable = false)
-    @Convert(converter = QuantityAttributeConverter.class)
     private Quantity quantity;
-
-    @Column(updatable = false)
-    @Convert(converter = MovementReasonAttributeConverter.class)
     private MovementReason reason;
+    private Date createdAt;
+    private Date updatedAt;
 
-    @Column(nullable = false, updatable = false)
-    @CreatedDate
-    private Instant createdAt;
-
-    protected InventoryMovement() {}
+    public InventoryMovement(StockLotId stockLotId, MovementType type, Quantity quantity, MovementReason reason) {
+        this.stockLotId = Objects.requireNonNull(stockLotId, "stockLotId must not be null");
+        this.type = Objects.requireNonNull(type, "type must not be null");
+        this.quantity = Objects.requireNonNull(quantity, "quantity must not be null");
+        this.reason = reason;
+    }
 
     public InventoryMovement(RegisterInventoryMovementCommand command) {
-        this.stockLotId = command.stockLotId();
-        this.type = command.type();
-        this.quantity = command.quantity();
-        this.reason = command.reason();
+        this(command.stockLotId(), command.type(), command.quantity(), command.reason());
+    }
+
+    public static InventoryMovement reconstitute(Long id, StockLotId stockLotId, MovementType type, Quantity quantity,
+                                                 MovementReason reason, Date createdAt, Date updatedAt) {
+        var movement = new InventoryMovement(stockLotId, type, quantity, reason);
+        movement.id = id;
+        movement.createdAt = createdAt;
+        movement.updatedAt = updatedAt;
+        return movement;
     }
 }

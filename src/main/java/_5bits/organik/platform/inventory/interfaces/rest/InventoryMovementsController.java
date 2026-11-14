@@ -2,14 +2,18 @@ package _5bits.organik.platform.inventory.interfaces.rest;
 
 import _5bits.organik.platform.inventory.application.commandservices.InventoryMovementCommandService;
 import _5bits.organik.platform.inventory.application.queryservices.InventoryMovementQueryService;
+import _5bits.organik.platform.inventory.domain.model.aggregates.InventoryMovement;
 import _5bits.organik.platform.inventory.domain.model.queries.GetAllInventoryMovementsByStockLotIdQuery;
 import _5bits.organik.platform.inventory.domain.model.queries.GetInventoryMovementByIdQuery;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.StockLotId;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.InventoryMovementResource;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.RegisterInventoryMovementResource;
+import _5bits.organik.platform.inventory.interfaces.rest.transform.InventoryMovementResourceFromEntityAssembler;
 import _5bits.organik.platform.inventory.interfaces.rest.transform.RegisterInventoryMovementCommandFromResourceAssembler;
-import _5bits.organik.platform.inventory.interfaces.rest.transform.ResponseEntityFromInventoryMovementCommandResultAssembler;
-import _5bits.organik.platform.inventory.interfaces.rest.transform.ResponseEntityFromInventoryMovementQueryResultAssembler;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
+import _5bits.organik.platform.shared.application.result.Result;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ProblemDetailFromApplicationErrorAssembler;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -18,111 +22,86 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-@Slf4j
+/**
+ * REST controller that exposes inventory movement endpoints.
+ */
 @RestController
 @RequestMapping(value = "/api/v1/inventory-movements", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Inventory Movements", description = "Endpoints for inventory movements")
+@Tag(name = "Inventory Movements", description = "Inventory movement management endpoints")
 public class InventoryMovementsController {
     private final InventoryMovementCommandService inventoryMovementCommandService;
     private final InventoryMovementQueryService inventoryMovementQueryService;
-    private final MessageSource messageSource;
 
-    public InventoryMovementsController(InventoryMovementCommandService inventoryMovementCommandService,
-                                        InventoryMovementQueryService inventoryMovementQueryService,
-                                        MessageSource messageSource) {
+    public InventoryMovementsController(InventoryMovementCommandService inventoryMovementCommandService, InventoryMovementQueryService inventoryMovementQueryService) {
         this.inventoryMovementCommandService = inventoryMovementCommandService;
         this.inventoryMovementQueryService = inventoryMovementQueryService;
-        this.messageSource = messageSource;
     }
 
-    @Operation(
-            summary = "Register an inventory movement",
-            description = "Registers an entry, exit, adjustment or waste on a stock lot",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Inventory movement registration request",
-                    content = @Content(schema = @Schema(implementation = RegisterInventoryMovementResource.class))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Inventory movement registered",
-                    content = @Content(schema = @Schema(implementation = InventoryMovementResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Stock lot not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "409", description = "Conflict - not enough stock in the lot",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @PostMapping
-    public ResponseEntity<?> registerInventoryMovement(@Valid @RequestBody RegisterInventoryMovementResource resource) {
-        log.debug("POST /api/v1/inventory-movements – stockLotId={}, type={}", resource.stockLotId(), resource.type());
-        var result = inventoryMovementCommandService
-                .handle(RegisterInventoryMovementCommandFromResourceAssembler.toCommandFromResource(resource));
-        var response = ResponseEntityFromInventoryMovementCommandResultAssembler.toResponseEntityFromResult(result, messageSource);
-        log.debug("POST /api/v1/inventory-movements – response status={}", response.getStatusCode());
-        return response;
+    @Operation(summary = "Register an inventory movement", description = "Registers an entry, exit, adjustment or waste and applies it to the stock of the lot.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Inventory movement created successfully",
+                    content = @Content(schema = @Schema(implementation = InventoryMovementResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "404", description = "Referenced resource not found")
+    })
+    public ResponseEntity<?> createInventoryMovement(@Valid @RequestBody RegisterInventoryMovementResource resource) {
+        var command = RegisterInventoryMovementCommandFromResourceAssembler.toCommandFromResource(resource);
+        var result = inventoryMovementCommandService.handle(command)
+                .flatMap(inventoryMovementId -> inventoryMovementQueryService.handle(new GetInventoryMovementByIdQuery(inventoryMovementId))
+                        .<Result<InventoryMovement, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("InventoryMovement", inventoryMovementId.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                InventoryMovementResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
     }
 
-    @Operation(
-            summary = "Get an inventory movement by ID",
-            description = "Gets an inventory movement by the provided ID")
+    @GetMapping("/{inventoryMovementId}")
+    @Operation(summary = "Get inventory movement by ID", description = "Retrieves a specific inventory movement by its unique identifier.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Inventory movement found",
                     content = @Content(schema = @Schema(implementation = InventoryMovementResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Inventory movement not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(responseCode = "404", description = "Inventory movement not found")
     })
-    @GetMapping("{id}")
-    public ResponseEntity<?> getInventoryMovementById(@PathVariable Long id) {
-        log.debug("GET /api/v1/inventory-movements/{}", id);
-        if (id == null || id <= 0) {
-            return ResponseEntityFromInventoryMovementQueryResultAssembler.badRequest(
-                    messageSource, "inventoryMovement.error.id.invalid");
+    public ResponseEntity<?> getInventoryMovementById(
+            @PathVariable
+            @Parameter(description = "Inventory movement unique identifier", example = "1", required = true)
+            Long inventoryMovementId
+    ) {
+        var inventoryMovement = inventoryMovementQueryService.handle(new GetInventoryMovementByIdQuery(inventoryMovementId));
+        if (inventoryMovement.isEmpty()) {
+            var error = ApplicationError.notFound("InventoryMovement", inventoryMovementId.toString());
+            return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
         }
-        var movement = inventoryMovementQueryService.handle(new GetInventoryMovementByIdQuery(id));
-        if (movement.isEmpty()) {
-            log.debug("Inventory movement not found for id={}", id);
-            return ResponseEntityFromInventoryMovementQueryResultAssembler.notFound(
-                    messageSource, "inventoryMovement.error.notFoundById", id);
-        }
-        return ResponseEntityFromInventoryMovementQueryResultAssembler.toResponseEntityFromInventoryMovement(movement.orElseThrow());
+        return ResponseEntity.ok(InventoryMovementResourceFromEntityAssembler.toResourceFromEntity(inventoryMovement.get()));
     }
 
-    @Operation(
-            summary = "Get the movements of a stock lot",
-            description = "Gets all the inventory movements of the provided stock lot, newest first")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Inventory movements found",
-                    content = @Content(schema = @Schema(implementation = InventoryMovementResource[].class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @GetMapping
-    public ResponseEntity<?> getInventoryMovementsByStockLotId(
-            @Parameter(name = "stockLotId", description = "Stock lot ID", schema = @Schema(minimum = "1"))
-            @RequestParam(name = "stockLotId", required = false) Long stockLotId) {
-        if (stockLotId == null) {
-            log.warn("GET /api/v1/inventory-movements – missing required parameter: stockLotId");
-            return ResponseEntityFromInventoryMovementQueryResultAssembler.badRequest(
-                    messageSource, "inventoryMovement.error.query.missing");
+    @Operation(summary = "Get inventory movements", description = "Retrieves the inventory movements filtered by stockLotId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Inventory movements retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = InventoryMovementResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
+    })
+    public ResponseEntity<?> getInventoryMovements(
+            @RequestParam(required = false)
+            @Parameter(description = "Stock lot identifier", example = "1")
+            Long stockLotId
+    ) {
+        if (stockLotId != null) {
+            var inventoryMovements = inventoryMovementQueryService.handle(new GetAllInventoryMovementsByStockLotIdQuery(new StockLotId(stockLotId)));
+            return ResponseEntity.ok(inventoryMovements.stream().map(InventoryMovementResourceFromEntityAssembler::toResourceFromEntity).toList());
         }
-        if (stockLotId <= 0) {
-            log.warn("Rejected invalid query param stockLotId");
-            return ResponseEntityFromInventoryMovementQueryResultAssembler.badRequest(
-                    messageSource, "inventory.error.stockLotId.invalid");
-        }
-        log.debug("GET /api/v1/inventory-movements?stockLotId={}", stockLotId);
-        var query = new GetAllInventoryMovementsByStockLotIdQuery(new StockLotId(stockLotId));
-        return ResponseEntityFromInventoryMovementQueryResultAssembler.toResponseEntityFromList(
-                inventoryMovementQueryService.handle(query));
+        var error = ApplicationError.validationError("stockLotId", "Query parameter stockLotId is required");
+        return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
     }
 }

@@ -2,14 +2,18 @@ package _5bits.organik.platform.inventory.interfaces.rest;
 
 import _5bits.organik.platform.inventory.application.commandservices.OfferCommandService;
 import _5bits.organik.platform.inventory.application.queryservices.OfferQueryService;
+import _5bits.organik.platform.inventory.domain.model.aggregates.Offer;
 import _5bits.organik.platform.inventory.domain.model.queries.GetAllOffersByStockLotIdQuery;
 import _5bits.organik.platform.inventory.domain.model.queries.GetOfferByIdQuery;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.StockLotId;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.CreateOfferResource;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.OfferResource;
 import _5bits.organik.platform.inventory.interfaces.rest.transform.CreateOfferCommandFromResourceAssembler;
-import _5bits.organik.platform.inventory.interfaces.rest.transform.ResponseEntityFromOfferCommandResultAssembler;
-import _5bits.organik.platform.inventory.interfaces.rest.transform.ResponseEntityFromOfferQueryResultAssembler;
+import _5bits.organik.platform.inventory.interfaces.rest.transform.OfferResourceFromEntityAssembler;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
+import _5bits.organik.platform.shared.application.result.Result;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ProblemDetailFromApplicationErrorAssembler;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -18,105 +22,86 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-@Slf4j
+/**
+ * REST controller that exposes offer endpoints.
+ */
 @RestController
 @RequestMapping(value = "/api/v1/offers", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Offers", description = "Endpoints for stock lot offers")
+@Tag(name = "Offers", description = "Offer management endpoints")
 public class OffersController {
     private final OfferCommandService offerCommandService;
     private final OfferQueryService offerQueryService;
-    private final MessageSource messageSource;
 
-    public OffersController(OfferCommandService offerCommandService,
-                            OfferQueryService offerQueryService,
-                            MessageSource messageSource) {
+    public OffersController(OfferCommandService offerCommandService, OfferQueryService offerQueryService) {
         this.offerCommandService = offerCommandService;
         this.offerQueryService = offerQueryService;
-        this.messageSource = messageSource;
     }
 
-    @Operation(
-            summary = "Create an offer",
-            description = "Assigns a promotional price to a stock lot for a period that ends on or before its expiration date",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Offer creation request",
-                    content = @Content(schema = @Schema(implementation = CreateOfferResource.class))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Offer created",
-                    content = @Content(schema = @Schema(implementation = OfferResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Stock lot not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "409", description = "Conflict - offer ends after the lot expiration date",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @PostMapping
+    @Operation(summary = "Create an offer", description = "Creates a special price for a stock lot that ends on or before its expiration date.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Offer created successfully",
+                    content = @Content(schema = @Schema(implementation = OfferResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "404", description = "Referenced resource not found")
+    })
     public ResponseEntity<?> createOffer(@Valid @RequestBody CreateOfferResource resource) {
-        log.debug("POST /api/v1/offers – stockLotId={}, price={}", resource.stockLotId(), resource.price());
-        var result = offerCommandService.handle(CreateOfferCommandFromResourceAssembler.toCommandFromResource(resource));
-        var response = ResponseEntityFromOfferCommandResultAssembler.toResponseEntityFromResult(result, messageSource);
-        log.debug("POST /api/v1/offers – response status={}", response.getStatusCode());
-        return response;
+        var command = CreateOfferCommandFromResourceAssembler.toCommandFromResource(resource);
+        var result = offerCommandService.handle(command)
+                .flatMap(offerId -> offerQueryService.handle(new GetOfferByIdQuery(offerId))
+                        .<Result<Offer, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("Offer", offerId.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                OfferResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
     }
 
-    @Operation(
-            summary = "Get an offer by ID",
-            description = "Gets an offer by the provided ID")
+    @GetMapping("/{offerId}")
+    @Operation(summary = "Get offer by ID", description = "Retrieves a specific offer by its unique identifier.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Offer found",
                     content = @Content(schema = @Schema(implementation = OfferResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Offer not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(responseCode = "404", description = "Offer not found")
     })
-    @GetMapping("{id}")
-    public ResponseEntity<?> getOfferById(@PathVariable Long id) {
-        log.debug("GET /api/v1/offers/{}", id);
-        if (id == null || id <= 0) {
-            return ResponseEntityFromOfferQueryResultAssembler.badRequest(messageSource, "offer.error.id.invalid");
-        }
-        var offer = offerQueryService.handle(new GetOfferByIdQuery(id));
+    public ResponseEntity<?> getOfferById(
+            @PathVariable
+            @Parameter(description = "Offer unique identifier", example = "1", required = true)
+            Long offerId
+    ) {
+        var offer = offerQueryService.handle(new GetOfferByIdQuery(offerId));
         if (offer.isEmpty()) {
-            log.debug("Offer not found for id={}", id);
-            return ResponseEntityFromOfferQueryResultAssembler.notFound(messageSource, "offer.error.notFoundById", id);
+            var error = ApplicationError.notFound("Offer", offerId.toString());
+            return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
         }
-        return ResponseEntityFromOfferQueryResultAssembler.toResponseEntityFromOffer(offer.orElseThrow());
+        return ResponseEntity.ok(OfferResourceFromEntityAssembler.toResourceFromEntity(offer.get()));
     }
 
-    @Operation(
-            summary = "Get the offers of a stock lot",
-            description = "Gets all the offers of the provided stock lot, latest start date first")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Offers found",
-                    content = @Content(schema = @Schema(implementation = OfferResource[].class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @GetMapping
-    public ResponseEntity<?> getOffersByStockLotId(
-            @Parameter(name = "stockLotId", description = "Stock lot ID", schema = @Schema(minimum = "1"))
-            @RequestParam(name = "stockLotId", required = false) Long stockLotId) {
-        if (stockLotId == null) {
-            log.warn("GET /api/v1/offers – missing required parameter: stockLotId");
-            return ResponseEntityFromOfferQueryResultAssembler.badRequest(messageSource, "offer.error.query.missing");
+    @Operation(summary = "Get offers", description = "Retrieves the offers filtered by stockLotId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Offers retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = OfferResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
+    })
+    public ResponseEntity<?> getOffers(
+            @RequestParam(required = false)
+            @Parameter(description = "Stock lot identifier", example = "1")
+            Long stockLotId
+    ) {
+        if (stockLotId != null) {
+            var offers = offerQueryService.handle(new GetAllOffersByStockLotIdQuery(new StockLotId(stockLotId)));
+            return ResponseEntity.ok(offers.stream().map(OfferResourceFromEntityAssembler::toResourceFromEntity).toList());
         }
-        if (stockLotId <= 0) {
-            log.warn("Rejected invalid query param stockLotId");
-            return ResponseEntityFromOfferQueryResultAssembler.badRequest(messageSource, "inventory.error.stockLotId.invalid");
-        }
-        log.debug("GET /api/v1/offers?stockLotId={}", stockLotId);
-        var query = new GetAllOffersByStockLotIdQuery(new StockLotId(stockLotId));
-        return ResponseEntityFromOfferQueryResultAssembler.toResponseEntityFromList(offerQueryService.handle(query));
+        var error = ApplicationError.validationError("stockLotId", "Query parameter stockLotId is required");
+        return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
     }
 }
