@@ -7,7 +7,24 @@ import _5bits.organik.platform.products.domain.model.queries.GetCategoryByIdQuer
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Application service contract for Category query operations.
+ */
 public interface CategoryQueryService {
-    List<Category> handle(GetAllCategoriesQuery query);
+
+    /**
+     * Handles the {@link GetCategoryByIdQuery} query.
+     *
+     * @param query query object
+     * @return the query result
+     */
     Optional<Category> handle(GetCategoryByIdQuery query);
+
+    /**
+     * Handles the {@link GetAllCategoriesQuery} query.
+     *
+     * @param query query object
+     * @return the query result
+     */
+    List<Category> handle(GetAllCategoriesQuery query);
 }

@@ -4,17 +4,16 @@ import _5bits.organik.platform.products.application.queryservices.CategoryQueryS
 import _5bits.organik.platform.products.domain.model.aggregates.Category;
 import _5bits.organik.platform.products.domain.model.queries.GetAllCategoriesQuery;
 import _5bits.organik.platform.products.domain.model.queries.GetCategoryByIdQuery;
-import _5bits.organik.platform.products.infrastructure.persistence.jpa.CategoryRepository;
-import lombok.extern.slf4j.Slf4j;
+import _5bits.organik.platform.products.domain.repositories.CategoryRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
+/**
+ * Application service that handles Category queries.
+ */
 @Service
-@Transactional(readOnly = true)
 public class CategoryQueryServiceImpl implements CategoryQueryService {
     private final CategoryRepository categoryRepository;
 
@@ -23,18 +22,12 @@ public class CategoryQueryServiceImpl implements CategoryQueryService {
     }
 
     @Override
-    public List<Category> handle(GetAllCategoriesQuery query) {
-        log.debug("Querying all categories");
-        var results = categoryRepository.findAll();
-        log.debug("Found {} category(ies)", results.size());
-        return results;
+    public Optional<Category> handle(GetCategoryByIdQuery query) {
+        return categoryRepository.findById(query.id());
     }
 
     @Override
-    public Optional<Category> handle(GetCategoryByIdQuery query) {
-        log.debug("Querying category by id={}", query.id());
-        var result = categoryRepository.findById(query.id());
-        if (result.isEmpty()) log.debug("No category found for id={}", query.id());
-        return result;
+    public List<Category> handle(GetAllCategoriesQuery query) {
+        return categoryRepository.findAll();
     }
 }

@@ -1,23 +1,20 @@
 package _5bits.organik.platform.products.application.internal.commandservices;
 
-import _5bits.organik.platform.products.application.commandservices.ProductCommandFailure;
 import _5bits.organik.platform.products.application.commandservices.ProductCommandService;
 import _5bits.organik.platform.products.domain.model.aggregates.Product;
 import _5bits.organik.platform.products.domain.model.commands.CreateProductCommand;
-import _5bits.organik.platform.products.infrastructure.persistence.jpa.CategoryRepository;
-import _5bits.organik.platform.products.infrastructure.persistence.jpa.ProductRepository;
+import _5bits.organik.platform.products.domain.model.commands.UpdateProductCommand;
+import _5bits.organik.platform.products.domain.repositories.CategoryRepository;
+import _5bits.organik.platform.products.domain.repositories.ProductRepository;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import static _5bits.organik.platform.products.domain.model.aggregates.Product.SKU_UNIQUE_CONSTRAINT;
-
-@Slf4j
+/**
+ * Application service that handles Product commands.
+ */
 @Service
 public class ProductCommandServiceImpl implements ProductCommandService {
-    private static final String DUPLICATE_PRODUCT_CONSTRAINT = SKU_UNIQUE_CONSTRAINT;
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
 
@@ -27,46 +24,34 @@ public class ProductCommandServiceImpl implements ProductCommandService {
     }
 
     @Override
-    @Transactional
-    public Result<Product, ProductCommandFailure> handle(CreateProductCommand command) {
-        if (!categoryRepository.existsById(command.categoryId().value())) {
-            log.warn("Product rejected, category not found: sku={}, categoryId={}",
-                    command.sku().value(), command.categoryId().value());
-            return Result.failure(new ProductCommandFailure.CategoryNotFound());
-        }
-        if (productRepository.existsBySku(command.sku())) {
-            log.warn("Duplicate product detected (pre-check): sku={}", command.sku().value());
-            return duplicateResult();
-        }
+    public Result<Long, ApplicationError> handle(CreateProductCommand command) {
+        if (productRepository.existsBySku(command.sku()))
+            return Result.failure(ApplicationError.conflict("Product", "SKU '%s' already exists".formatted(command.sku().value())));
+        if (!categoryRepository.existsById(command.categoryId().value()))
+            return Result.failure(ApplicationError.notFound("Category", command.categoryId().value().toString()));
+        var product = new Product(command);
         try {
-            var product = new Product(command);
-            var createdProduct = productRepository.save(product);
-            log.info("Product created: sku={}, categoryId={}, id={}",
-                    command.sku().value(),
-                    command.categoryId().value(),
-                    createdProduct.getId());
-            return Result.success(createdProduct);
-        } catch (DataIntegrityViolationException exception) {
-            if (isDuplicateProductViolation(exception)) {
-                log.warn("Duplicate product detected (constraint violation): sku={}", command.sku().value());
-                return duplicateResult();
-            }
-            log.error("Unexpected data integrity violation saving product: sku={}", command.sku().value(), exception);
-            throw exception;
+            product = productRepository.save(product);
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("create-product", e.getMessage()));
         }
+        return Result.success(product.getId());
     }
 
-    private Result<Product, ProductCommandFailure> duplicateResult() {
-        return Result.failure(new ProductCommandFailure.Duplicate());
-    }
-
-    private boolean isDuplicateProductViolation(DataIntegrityViolationException exception) {
-        Throwable violationCause = exception;
-        while (violationCause != null) {
-            String message = violationCause.getMessage();
-            if (message != null && message.contains(DUPLICATE_PRODUCT_CONSTRAINT)) return true;
-            violationCause = violationCause.getCause();
+    @Override
+    public Result<Long, ApplicationError> handle(UpdateProductCommand command) {
+        var result = productRepository.findById(command.productId());
+        if (result.isEmpty())
+            return Result.failure(ApplicationError.notFound("Product", command.productId().toString()));
+        if (!categoryRepository.existsById(command.categoryId().value()))
+            return Result.failure(ApplicationError.notFound("Category", command.categoryId().value().toString()));
+        var productToUpdate = result.get();
+        try {
+            var updatedProduct = productRepository.save(productToUpdate.updateInformation(
+                    command.name(), command.categoryId(), command.supplierId(), command.unit(), command.minimumStock()));
+            return Result.success(updatedProduct.getId());
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("update-product", e.getMessage()));
         }
-        return false;
     }
 }
