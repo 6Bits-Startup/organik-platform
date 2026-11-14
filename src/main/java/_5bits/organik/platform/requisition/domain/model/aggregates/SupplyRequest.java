@@ -1,84 +1,83 @@
 package _5bits.organik.platform.requisition.domain.model.aggregates;
 
-import _5bits.organik.platform.requisition.domain.model.valueobjects.MinimarketId;
-import _5bits.organik.platform.requisition.domain.model.valueobjects.ProductId;
-import _5bits.organik.platform.requisition.domain.model.valueobjects.Quantity;
-import _5bits.organik.platform.requisition.domain.model.valueobjects.RequestPriority;
-import _5bits.organik.platform.requisition.domain.model.valueobjects.RequestReason;
-import _5bits.organik.platform.requisition.domain.model.valueobjects.RequestStatus;
-import _5bits.organik.platform.requisition.domain.model.valueobjects.SupplierId;
-import _5bits.organik.platform.requisition.infrastructure.persistence.jpa.converters.MinimarketIdAttributeConverter;
-import _5bits.organik.platform.requisition.infrastructure.persistence.jpa.converters.ProductIdAttributeConverter;
-import _5bits.organik.platform.requisition.infrastructure.persistence.jpa.converters.QuantityAttributeConverter;
-import _5bits.organik.platform.requisition.infrastructure.persistence.jpa.converters.RequestReasonAttributeConverter;
-import _5bits.organik.platform.requisition.infrastructure.persistence.jpa.converters.SupplierIdAttributeConverter;
 import _5bits.organik.platform.requisition.domain.model.commands.CreateSupplyRequestCommand;
-import jakarta.persistence.*;
+import _5bits.organik.platform.requisition.domain.model.valueobjects.*;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Objects;
 
+/**
+ * Supply request aggregate root.
+ * <p>
+ * A minimarket shares what it needs; the supplier accepts or rejects the request.
+ * </p>
+ */
 @Getter
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-public class SupplyRequest {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class SupplyRequest extends AbstractDomainAggregateRoot<SupplyRequest> {
     private Long id;
-
-    @Column(nullable = false)
-    @Convert(converter = ProductIdAttributeConverter.class)
     private ProductId productId;
-
-    @Column(nullable = false)
-    @Convert(converter = SupplierIdAttributeConverter.class)
     private SupplierId supplierId;
-
-    @Column(nullable = false)
-    @Convert(converter = MinimarketIdAttributeConverter.class)
     private MinimarketId minimarketId;
-
-    @Column(nullable = false)
-    @Convert(converter = QuantityAttributeConverter.class)
     private Quantity quantity;
-
-    @Column(nullable = false)
-    @Convert(converter = RequestReasonAttributeConverter.class)
     private RequestReason reason;
-
-    @Column(nullable = false)
     private LocalDate requiredDate;
-
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
     private RequestPriority priority;
-
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
     private RequestStatus status;
 
-    @Column(nullable = false, updatable = false)
-    @CreatedDate
-    private Instant createdAt;
-
-    @Column(nullable = false)
-    @LastModifiedDate
-    private Instant updatedAt;
-
-    protected SupplyRequest() {}
+    public SupplyRequest(ProductId productId, SupplierId supplierId, MinimarketId minimarketId, Quantity quantity,
+                         RequestReason reason, LocalDate requiredDate, RequestPriority priority) {
+        this.productId = Objects.requireNonNull(productId, "productId must not be null");
+        this.supplierId = Objects.requireNonNull(supplierId, "supplierId must not be null");
+        this.minimarketId = Objects.requireNonNull(minimarketId, "minimarketId must not be null");
+        this.quantity = Objects.requireNonNull(quantity, "quantity must not be null");
+        this.reason = Objects.requireNonNull(reason, "reason must not be null");
+        this.requiredDate = Objects.requireNonNull(requiredDate, "requiredDate must not be null");
+        this.priority = Objects.requireNonNull(priority, "priority must not be null");
+        this.status = RequestStatus.PENDING;
+    }
 
     public SupplyRequest(CreateSupplyRequestCommand command) {
-        this.productId = command.productId();
-        this.supplierId = command.supplierId();
-        this.minimarketId = command.minimarketId();
-        this.quantity = command.quantity();
-        this.reason = command.reason();
-        this.requiredDate = command.requiredDate();
-        this.priority = command.priority();
-        this.status = RequestStatus.PENDING;
+        this(command.productId(), command.supplierId(), command.minimarketId(), command.quantity(),
+                command.reason(), command.requiredDate(), command.priority());
+    }
+
+    public static SupplyRequest reconstitute(Long id, ProductId productId, SupplierId supplierId, MinimarketId minimarketId,
+                                             Quantity quantity, RequestReason reason, LocalDate requiredDate,
+                                             RequestPriority priority, RequestStatus status) {
+        var supplyRequest = new SupplyRequest(productId, supplierId, minimarketId, quantity, reason, requiredDate, priority);
+        supplyRequest.id = id;
+        supplyRequest.status = status;
+        return supplyRequest;
+    }
+
+    /**
+     * @return {@code true} when the supplier has not answered the request yet
+     */
+    public boolean isPending() {
+        return this.status == RequestStatus.PENDING;
+    }
+
+    /**
+     * Accepts the supply request.
+     */
+    public void accept() {
+        ensurePending();
+        this.status = RequestStatus.ACCEPTED;
+    }
+
+    /**
+     * Rejects the supply request.
+     */
+    public void reject() {
+        ensurePending();
+        this.status = RequestStatus.REJECTED;
+    }
+
+    private void ensurePending() {
+        if (!isPending()) {
+            throw new IllegalStateException("Only pending supply requests can be answered");
+        }
     }
 }

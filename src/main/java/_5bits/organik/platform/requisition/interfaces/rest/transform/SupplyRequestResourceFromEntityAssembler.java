@@ -3,6 +3,10 @@ package _5bits.organik.platform.requisition.interfaces.rest.transform;
 import _5bits.organik.platform.requisition.domain.model.aggregates.SupplyRequest;
 import _5bits.organik.platform.requisition.interfaces.rest.resources.SupplyRequestResource;
 
+
+/**
+ * Assembler that converts a {@link SupplyRequest} aggregate into a {@link SupplyRequestResource}.
+ */
 public class SupplyRequestResourceFromEntityAssembler {
     public static SupplyRequestResource toResourceFromEntity(SupplyRequest entity) {
         return new SupplyRequestResource(
