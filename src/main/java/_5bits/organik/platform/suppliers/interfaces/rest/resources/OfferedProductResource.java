@@ -4,18 +4,22 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
 
-@Schema(description = "Response resource representing a product offered by a supplier")
+/**
+ * Response resource representing an offered product.
+ */
+@Schema(name = "OfferedProductResponse", description = "Offered product information response")
 public record OfferedProductResource(
-        @Schema(description = "Persistent identifier", example = "1")
-        Long id,
-        @Schema(description = "Supplier that offers the product", example = "1")
-        String supplierId,
-        @Schema(description = "Product of the catalog", example = "prod-quinua-blanca")
-        String productId,
-        @Schema(description = "Lot code of the offered product", example = "BA-0412")
-        String lotCode,
-        @Schema(description = "Available quantity of the lot", example = "120")
-        Integer availableQuantity,
-        @Schema(description = "Expiration date of the lot", example = "2026-12-15")
-        LocalDate expiresOn) {
+    @Schema(description = "Offered product unique identifier", example = "1")
+    Long id,
+    @Schema(description = "Supplier that offers the product", example = "sup-bioandes")
+    String supplierId,
+    @Schema(description = "Offered product", example = "ORG-01")
+    String productId,
+    @Schema(description = "Lot code", example = "LT-512")
+    String lotCode,
+    @Schema(description = "Available quantity", example = "120")
+    Integer availableQuantity,
+    @Schema(description = "Expiration date of the lot", example = "2026-12-20")
+    LocalDate expiresOn
+) {
 }

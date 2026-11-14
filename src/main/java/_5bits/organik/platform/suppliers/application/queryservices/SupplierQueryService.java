@@ -7,7 +7,24 @@ import _5bits.organik.platform.suppliers.domain.model.queries.GetSupplierByIdQue
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Application service contract for Supplier query operations.
+ */
 public interface SupplierQueryService {
-    List<Supplier> handle(GetAllSuppliersQuery query);
+
+    /**
+     * Handles the {@link GetSupplierByIdQuery} query.
+     *
+     * @param query query object
+     * @return the query result
+     */
     Optional<Supplier> handle(GetSupplierByIdQuery query);
+
+    /**
+     * Handles the {@link GetAllSuppliersQuery} query.
+     *
+     * @param query query object
+     * @return the query result
+     */
+    List<Supplier> handle(GetAllSuppliersQuery query);
 }
