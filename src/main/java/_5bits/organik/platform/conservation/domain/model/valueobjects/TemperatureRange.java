@@ -1,13 +1,12 @@
 package _5bits.organik.platform.conservation.domain.model.valueobjects;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
-
-@Embeddable
-public record TemperatureRange(
-        @Column(name = "min_temperature", nullable = false) Temperature min,
-        @Column(name = "max_temperature", nullable = false) Temperature max
-) {
+/**
+ * Allowed temperature range of a storage zone.
+ *
+ * @param min minimum allowed temperature
+ * @param max maximum allowed temperature
+ */
+public record TemperatureRange(Temperature min, Temperature max) {
     public TemperatureRange {
         if (min == null || max == null) {
             throw new IllegalArgumentException("Minimum and maximum temperature cannot be null");
@@ -17,6 +16,10 @@ public record TemperatureRange(
         }
     }
 
+    /**
+     * @param temperature measured temperature
+     * @return {@code true} when the value is inside the range
+     */
     public boolean includes(Temperature temperature) {
         return temperature.value() >= min.value() && temperature.value() <= max.value();
     }

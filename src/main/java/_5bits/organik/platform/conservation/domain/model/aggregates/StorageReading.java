@@ -1,75 +1,68 @@
 package _5bits.organik.platform.conservation.domain.model.aggregates;
 
+import _5bits.organik.platform.conservation.domain.model.commands.RecordStorageReadingCommand;
+import _5bits.organik.platform.conservation.domain.model.events.StorageReadingOutOfRangeEvent;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.Humidity;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.ReadingSource;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.StorageZoneId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.Temperature;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
+import lombok.Getter;
+
 import java.time.LocalDateTime;
+import java.util.Objects;
 
-@Entity
-@Table(name = "storage_readings")
-public class StorageReading {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+/**
+ * Storage reading aggregate root.
+ * <p>
+ * A temperature and humidity measurement taken in a storage zone, by a sensor or manually.
+ * </p>
+ */
+@Getter
+public class StorageReading extends AbstractDomainAggregateRoot<StorageReading> {
     private Long id;
-
-    @Column(name = "storage_zone_id", nullable = false)
     private StorageZoneId storageZoneId;
-
-    @Column(name = "temperature", nullable = false)
     private Temperature temperature;
-
-    @Column(name = "humidity", nullable = false)
     private Humidity humidity;
-
-    @Column(name = "recorded_at", nullable = false)
     private LocalDateTime recordedAt;
-
-    @Column(name = "source", nullable = false, length = 20)
     private ReadingSource source;
+    private Boolean withinRange;
 
-    protected StorageReading() {
+    public StorageReading(StorageZoneId storageZoneId, Temperature temperature, Humidity humidity,
+                          LocalDateTime recordedAt, ReadingSource source, Boolean withinRange) {
+        this.storageZoneId = Objects.requireNonNull(storageZoneId, "storageZoneId must not be null");
+        this.temperature = Objects.requireNonNull(temperature, "temperature must not be null");
+        this.humidity = Objects.requireNonNull(humidity, "humidity must not be null");
+        this.recordedAt = Objects.requireNonNull(recordedAt, "recordedAt must not be null");
+        this.source = Objects.requireNonNull(source, "source must not be null");
+        this.withinRange = Objects.requireNonNull(withinRange, "withinRange must not be null");
     }
 
-    public StorageReading(StorageZoneId storageZoneId, Temperature temperature, Humidity humidity, LocalDateTime recordedAt, ReadingSource source) {
-        if (recordedAt == null) {
-            throw new IllegalArgumentException("Recorded date and time cannot be null");
+    /**
+     * Creates a reading evaluated against the ranges of its storage zone.
+     *
+     * @param command command with the reading data
+     * @param storageZone storage zone where the reading was taken
+     */
+    public StorageReading(RecordStorageReadingCommand command, StorageZone storageZone) {
+        this(command.storageZoneId(), command.temperature(), command.humidity(), command.recordedAt(), command.source(),
+                storageZone.isReadingWithinRange(command.temperature(), command.humidity()));
+    }
+
+    public static StorageReading reconstitute(Long id, StorageZoneId storageZoneId, Temperature temperature, Humidity humidity,
+                                              LocalDateTime recordedAt, ReadingSource source, Boolean withinRange) {
+        var storageReading = new StorageReading(storageZoneId, temperature, humidity, recordedAt, source, withinRange);
+        storageReading.id = id;
+        return storageReading;
+    }
+
+    /**
+     * Registers the {@link StorageReadingOutOfRangeEvent} when the persisted reading is out of range.
+     */
+    public void onRecorded() {
+        if (!Boolean.TRUE.equals(withinRange)) {
+            registerDomainEvent(new StorageReadingOutOfRangeEvent(
+                    id, storageZoneId.value(), temperature.value(), humidity.value(), recordedAt));
         }
-        this.storageZoneId = storageZoneId;
-        this.temperature = temperature;
-        this.humidity = humidity;
-        this.recordedAt = recordedAt;
-        this.source = source;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public StorageZoneId getStorageZoneId() {
-        return storageZoneId;
-    }
-
-    public Temperature getTemperature() {
-        return temperature;
-    }
-
-    public Humidity getHumidity() {
-        return humidity;
-    }
-
-    public LocalDateTime getRecordedAt() {
-        return recordedAt;
-    }
-
-    public ReadingSource getSource() {
-        return source;
     }
 }
