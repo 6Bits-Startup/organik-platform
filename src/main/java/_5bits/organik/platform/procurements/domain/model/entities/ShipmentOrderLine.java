@@ -1,45 +1,37 @@
 package _5bits.organik.platform.procurements.domain.model.entities;
 
-import _5bits.organik.platform.procurements.domain.model.commands.CreateShipmentOrderCommand;
 import _5bits.organik.platform.procurements.domain.model.valueobjects.LotCode;
 import _5bits.organik.platform.procurements.domain.model.valueobjects.ProductId;
 import _5bits.organik.platform.procurements.domain.model.valueobjects.Quantity;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.converters.LotCodeAttributeConverter;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.converters.ProductIdAttributeConverter;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.converters.QuantityAttributeConverter;
-import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.LocalDate;
+import java.util.Objects;
 
+/**
+ * Shipment order line entity.
+ * <p>
+ * A product lot included in a shipment order. It is only accessed through the {@code ShipmentOrder} aggregate root.
+ * </p>
+ */
 @Getter
-@Entity
 public class ShipmentOrderLine {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(nullable = false)
-    @Convert(converter = ProductIdAttributeConverter.class)
     private ProductId productId;
-
-    @Column(nullable = false)
-    @Convert(converter = QuantityAttributeConverter.class)
     private Quantity quantity;
-
-    @Column(nullable = false)
-    @Convert(converter = LotCodeAttributeConverter.class)
     private LotCode lotCode;
-
-    @Column(nullable = false)
     private LocalDate expiresOn;
 
-    protected ShipmentOrderLine() {}
+    public ShipmentOrderLine(ProductId productId, Quantity quantity, LotCode lotCode, LocalDate expiresOn) {
+        this.productId = Objects.requireNonNull(productId, "productId must not be null");
+        this.quantity = Objects.requireNonNull(quantity, "quantity must not be null");
+        this.lotCode = Objects.requireNonNull(lotCode, "lotCode must not be null");
+        this.expiresOn = Objects.requireNonNull(expiresOn, "expiresOn must not be null");
+    }
 
-    public ShipmentOrderLine(CreateShipmentOrderCommand.Line line) {
-        this.productId = line.productId();
-        this.quantity = line.quantity();
-        this.lotCode = line.lotCode();
-        this.expiresOn = line.expiresOn();
+    public static ShipmentOrderLine reconstitute(Long id, ProductId productId, Quantity quantity, LotCode lotCode, LocalDate expiresOn) {
+        var line = new ShipmentOrderLine(productId, quantity, lotCode, expiresOn);
+        line.id = id;
+        return line;
     }
 }
