@@ -4,67 +4,85 @@ import _5bits.organik.platform.communication.domain.model.commands.CreateNotific
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationTitle;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationType;
 import _5bits.organik.platform.communication.domain.model.valueobjects.Severity;
-import _5bits.organik.platform.communication.infrastructure.persistence.jpa.converters.NotificationTitleConverter;
-import _5bits.organik.platform.communication.infrastructure.persistence.jpa.converters.NotificationTypeConverter;
-import _5bits.organik.platform.communication.infrastructure.persistence.jpa.converters.SeverityConverter;
-import jakarta.persistence.*;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
+import java.util.Date;
+import java.util.Objects;
 
+/**
+ * Notification aggregate root.
+ * <p>
+ * Represents an alert shown to the minimarket staff: expirations, conservation problems,
+ * low stock, replenishment and order updates.
+ * </p>
+ */
 @Getter
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-public class Notification {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class Notification extends AbstractDomainAggregateRoot<Notification> {
     private Long id;
-
-    @Column(nullable = false, length = 30)
-    @Convert(converter = NotificationTypeConverter.class)
     private NotificationType type;
-
-    @Column(nullable = false, length = 20)
-    @Convert(converter = SeverityConverter.class)
     private Severity severity;
-
-    @Column(nullable = false, length = 150)
-    @Convert(converter = NotificationTitleConverter.class)
     private NotificationTitle title;
+    private Boolean isRead;
+    private Date createdAt;
+    private Date updatedAt;
 
-    @Column(nullable = false)
-    private boolean isRead;
-
-    @Column(nullable = false, updatable = false)
-    @CreatedDate
-    private Instant createdAt;
-
-    @Column(nullable = false)
-    @LastModifiedDate
-    private Instant updatedAt;
-
-    protected Notification() {
-    }
-
-    public Notification(CreateNotificationCommand command) {
-        this.type = command.type();
-        this.severity = command.severity();
-        this.title = command.title();
-        this.isRead = false;
-    }
-
+    /**
+     * Creates a new unread notification.
+     *
+     * @param type notification type
+     * @param severity notification severity
+     * @param title notification title
+     */
     public Notification(NotificationType type, Severity severity, NotificationTitle title) {
-        this.type = type;
-        this.severity = severity;
-        this.title = title;
+        this.type = Objects.requireNonNull(type, "type must not be null");
+        this.severity = Objects.requireNonNull(severity, "severity must not be null");
+        this.title = Objects.requireNonNull(title, "title must not be null");
         this.isRead = false;
     }
 
+    /**
+     * Creates a new unread notification from a create command.
+     *
+     * @param command command with the notification data
+     */
+    public Notification(CreateNotificationCommand command) {
+        this(command.type(), command.severity(), command.title());
+    }
+
+    /**
+     * Rebuilds a notification loaded from storage.
+     *
+     * @param id notification identifier
+     * @param type notification type
+     * @param severity notification severity
+     * @param title notification title
+     * @param isRead whether the notification was read
+     * @param createdAt creation date
+     * @param updatedAt last update date
+     * @return the reconstituted notification
+     */
+    public static Notification reconstitute(Long id, NotificationType type, Severity severity, NotificationTitle title,
+                                            Boolean isRead, Date createdAt, Date updatedAt) {
+        var notification = new Notification(type, severity, title);
+        notification.id = id;
+        notification.isRead = Boolean.TRUE.equals(isRead);
+        notification.createdAt = createdAt;
+        notification.updatedAt = updatedAt;
+        return notification;
+    }
+
+    /**
+     * Marks the notification as read.
+     */
     public void markAsRead() {
         this.isRead = true;
+    }
+
+    /**
+     * @return {@code true} when the notification was already read
+     */
+    public boolean isAlreadyRead() {
+        return Boolean.TRUE.equals(this.isRead);
     }
 }

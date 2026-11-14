@@ -5,32 +5,29 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-@Schema(description = "Request resource used to create a notification")
+/**
+ * Request resource used to create a notification.
+ */
+@Schema(
+    name = "CreateNotificationRequest",
+    description = "Request payload for creating a notification",
+    example = "{\"type\": \"LOW_STOCK\", \"severity\": \"WARNING\", \"title\": \"Low stock in lot LT-204\"}"
+)
 public record CreateNotificationResource(
-        @Schema(
-                description = "Type of the notification",
-                example = "LOW_STOCK",
-                allowableValues = {"EXPIRATION", "CONSERVATION", "LOW_STOCK", "REPLENISHMENT", "ORDER"},
-                requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotBlank(message = "{notification.error.type.notBlank}")
-        @Pattern(regexp = "^(EXPIRATION|CONSERVATION|LOW_STOCK|REPLENISHMENT|ORDER)$", message = "{notification.error.type.pattern}")
-        String type,
+    @Schema(description = "Notification type", example = "LOW_STOCK",
+            allowableValues = {"EXPIRATION", "CONSERVATION", "LOW_STOCK", "REPLENISHMENT", "ORDER"})
+    @NotBlank(message = "{notification.error.type.notBlank}")
+    @Pattern(regexp = "^(EXPIRATION|CONSERVATION|LOW_STOCK|REPLENISHMENT|ORDER)$", message = "{notification.error.type.pattern}")
+    String type,
 
-        @Schema(
-                description = "Severity level of the notification",
-                example = "WARNING",
-                allowableValues = {"INFO", "WARNING", "CRITICAL"},
-                requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotBlank(message = "{notification.error.severity.notBlank}")
-        @Pattern(regexp = "^(INFO|WARNING|CRITICAL)$", message = "{notification.error.severity.pattern}")
-        String severity,
+    @Schema(description = "Notification severity", example = "WARNING", allowableValues = {"INFO", "WARNING", "CRITICAL"})
+    @NotBlank(message = "{notification.error.severity.notBlank}")
+    @Pattern(regexp = "^(INFO|WARNING|CRITICAL)$", message = "{notification.error.severity.pattern}")
+    String severity,
 
-        @Schema(
-                description = "Title or summary message of the notification",
-                example = "Stock bajo en quinua blanca",
-                maxLength = 150,
-                requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotBlank(message = "{notification.error.title.notBlank}")
-        @Size(max = 150, message = "{notification.error.title.size}")
-        String title) {
+    @Schema(description = "Notification title", example = "Low stock in lot LT-204", maxLength = 150)
+    @NotBlank(message = "{notification.error.title.notBlank}")
+    @Size(max = 150, message = "{notification.error.title.size}")
+    String title
+) {
 }

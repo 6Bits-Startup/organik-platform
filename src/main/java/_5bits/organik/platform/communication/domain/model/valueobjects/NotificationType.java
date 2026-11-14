@@ -10,16 +10,16 @@ public record NotificationType(String value) {
             "REPLENISHMENT",
             "ORDER"
     );
-    private static final String NOT_BLANK_MESSAGE_KEY = "notification.error.type.notBlank";
-    private static final String PATTERN_MESSAGE_KEY = "notification.error.type.pattern";
+    private static final String NOT_BLANK_MESSAGE = "The notification type is required.";
+    private static final String PATTERN_MESSAGE = "The notification type must be EXPIRATION, CONSERVATION, LOW_STOCK, REPLENISHMENT or ORDER.";
 
     public NotificationType {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(NOT_BLANK_MESSAGE_KEY);
+            throw new IllegalArgumentException(NOT_BLANK_MESSAGE);
         }
         value = value.trim().toUpperCase();
         if (!ALLOWED_TYPES.contains(value)) {
-            throw new IllegalArgumentException(PATTERN_MESSAGE_KEY);
+            throw new IllegalArgumentException(PATTERN_MESSAGE);
         }
     }
 }
