@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Conservation**: storage zones and storage readings REST API.
 - **Requisition**: supply request acceptance and rejection.
 - **Domain and integration events**: accepted shipment orders register their stock lots; low stock lots, out-of-range readings and accepted orders create notifications.
+- **Dashboard**: operational summary of a minimarket (`GET /api/v1/dashboard`).
+- **Analytics**: operational indicators (`GET /api/v1/operational-indicators`) and activity history (`GET /api/v1/activity-records`) fed by integration events.
+- **ACL facades** for inventory, procurements, requisition, communication and conservation.
 - **API documentation** with the Scalar API Reference at `/scalar`.
 - **Deployment**: `Dockerfile`, `.env.example` and `dev`/`prod` profiles.
 - **Tests** for domain models, application services, repository adapters, controllers and the shared kernel.

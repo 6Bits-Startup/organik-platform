@@ -46,6 +46,8 @@ bounded_context/
 | `procurements`  | Shipment orders and their acceptance or rejection                                |
 | `conservation`  | Storage zones and temperature and humidity readings                              |
 | `communication` | Notifications shown to the minimarket staff                                      |
+| `dashboard`     | Operational summary of a minimarket for its home view                            |
+| `analytics`     | Operational indicators and activity history                                      |
 | `shared`        | Result and error model, base classes, OpenAPI/Scalar, i18n and error handling    |
 
 ### Collaboration between bounded contexts
@@ -54,6 +56,8 @@ bounded_context/
 - `procurements` publishes `ShipmentOrderAcceptedIntegrationEvent`: `inventory` registers the stock lots of the order and `communication` creates an `ORDER` notification.
 - `inventory` publishes `StockLotLowStockIntegrationEvent` when a lot reaches its minimum stock: `communication` creates a `LOW_STOCK` notification.
 - `conservation` publishes `StorageReadingOutOfRangeIntegrationEvent`: `communication` creates a `CONSERVATION` notification.
+- `analytics` records the three integration events above in the activity history.
+- `dashboard` and `analytics` read the other contexts through their ACL facades (`InventoryContextFacade`, `ProcurementsContextFacade`, `RequisitionContextFacade`, `CommunicationContextFacade`, `ConservationContextFacade`).
 
 ## Configuration
 
@@ -127,6 +131,8 @@ docker run -p 8080:8080 --env-file .env organik-platform
 | Procurements    | `POST/GET /api/v1/shipment-orders` (`supplierId`, `minimarketId`), `GET /api/v1/shipment-orders/{shipmentOrderId}`, `POST /api/v1/shipment-orders/{shipmentOrderId}/acceptances`, `POST /api/v1/shipment-orders/{shipmentOrderId}/rejections` |
 | Conservation    | `POST/GET /api/v1/storage-zones`, `GET /api/v1/storage-zones/{storageZoneId}`, `POST/GET /api/v1/storage-readings` (`storageZoneId`), `GET /api/v1/storage-readings/{storageReadingId}` |
 | Communication   | `POST/GET /api/v1/notifications`, `GET /api/v1/notifications/{notificationId}`, `POST /api/v1/notifications/{notificationId}/readings` |
+| Dashboard       | `GET /api/v1/dashboard` (`minimarketId`) |
+| Analytics       | `GET /api/v1/operational-indicators` (`minimarketId`), `GET /api/v1/activity-records` (`minimarketId`), `GET /api/v1/activity-records/{activityRecordId}` |
 
 ## Architecture & Development Conventions
 
