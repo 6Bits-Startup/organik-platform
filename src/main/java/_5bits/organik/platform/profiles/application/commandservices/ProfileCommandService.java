@@ -1,6 +1,7 @@
 package _5bits.organik.platform.profiles.application.commandservices;
 
 import _5bits.organik.platform.profiles.domain.model.commands.CreateProfileCommand;
+import _5bits.organik.platform.profiles.domain.model.commands.UpdateProfileCommand;
 import _5bits.organik.platform.profiles.domain.model.commands.UpdateProfilePreferencesCommand;
 import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
@@ -25,4 +26,12 @@ public interface ProfileCommandService {
      * @return the identifier of the affected Profile, or an application error
      */
     Result<Long, ApplicationError> handle(UpdateProfilePreferencesCommand command);
+
+    /**
+     * Handles the update of the personal information of a profile.
+     *
+     * @param command command object
+     * @return the identifier of the affected Profile, or an application error
+     */
+    Result<Long, ApplicationError> handle(UpdateProfileCommand command);
 }

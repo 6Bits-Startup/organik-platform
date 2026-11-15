@@ -12,8 +12,10 @@ import _5bits.organik.platform.profiles.domain.model.valueobjects.UserId;
 import _5bits.organik.platform.profiles.interfaces.rest.resources.CreateProfileResource;
 import _5bits.organik.platform.profiles.interfaces.rest.resources.ProfileResource;
 import _5bits.organik.platform.profiles.interfaces.rest.resources.UpdateProfilePreferencesResource;
+import _5bits.organik.platform.profiles.interfaces.rest.resources.UpdateProfileResource;
 import _5bits.organik.platform.profiles.interfaces.rest.transform.CreateProfileCommandFromResourceAssembler;
 import _5bits.organik.platform.profiles.interfaces.rest.transform.ProfileResourceFromEntityAssembler;
+import _5bits.organik.platform.profiles.interfaces.rest.transform.UpdateProfileCommandFromResourceAssembler;
 import _5bits.organik.platform.profiles.interfaces.rest.transform.UpdateProfilePreferencesCommandFromResourceAssembler;
 import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
@@ -116,6 +118,33 @@ public class ProfilesController {
         }
         var profiles = profileQueryService.handle(new GetAllProfilesQuery());
         return ResponseEntity.ok(profiles.stream().map(ProfileResourceFromEntityAssembler::toResourceFromEntity).toList());
+    }
+
+    @PutMapping("/{profileId}")
+    @Operation(summary = "Update profile", description = "Updates the personal information of a profile.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile updated successfully",
+                    content = @Content(schema = @Schema(implementation = ProfileResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "404", description = "Profile not found")
+    })
+    public ResponseEntity<?> updateProfile(
+            @PathVariable
+            @Parameter(description = "Profile unique identifier", example = "1", required = true)
+            Long profileId,
+            @Valid @RequestBody UpdateProfileResource resource
+    ) {
+        var command = UpdateProfileCommandFromResourceAssembler.toCommandFromResource(profileId, resource);
+        var result = profileCommandService.handle(command)
+                .flatMap(id -> profileQueryService.handle(new GetProfileByIdQuery(id))
+                        .<Result<Profile, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("Profile", id.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                ProfileResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.OK
+        );
     }
 
     @PutMapping("/{profileId}/preferences")

@@ -4,6 +4,7 @@ import _5bits.organik.platform.profiles.application.commandservices.ProfileComma
 import _5bits.organik.platform.profiles.application.internal.outboundservices.acl.ExternalIamService;
 import _5bits.organik.platform.profiles.domain.model.aggregates.Profile;
 import _5bits.organik.platform.profiles.domain.model.commands.CreateProfileCommand;
+import _5bits.organik.platform.profiles.domain.model.commands.UpdateProfileCommand;
 import _5bits.organik.platform.profiles.domain.model.commands.UpdateProfilePreferencesCommand;
 import _5bits.organik.platform.profiles.domain.repositories.ProfileRepository;
 import _5bits.organik.platform.shared.application.result.ApplicationError;
@@ -62,6 +63,20 @@ public class ProfileCommandServiceImpl implements ProfileCommandService {
             return Result.success(updatedProfile.getId());
         } catch (Exception e) {
             return Result.failure(ApplicationError.unexpected("update-profile-preferences", e.getMessage()));
+        }
+    }
+
+    @Override
+    public Result<Long, ApplicationError> handle(UpdateProfileCommand command) {
+        var result = profileRepository.findById(command.profileId());
+        if (result.isEmpty())
+            return Result.failure(ApplicationError.notFound("Profile", command.profileId().toString()));
+        var profileToUpdate = result.get();
+        try {
+            var updatedProfile = profileRepository.save(profileToUpdate.updateInformation(command.fullName()));
+            return Result.success(updatedProfile.getId());
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("update-profile", e.getMessage()));
         }
     }
 }

@@ -53,6 +53,17 @@ public class Profile extends AbstractDomainAggregateRoot<Profile> {
     }
 
     /**
+     * Updates the personal information of the profile.
+     *
+     * @param fullName new full name
+     * @return the updated profile
+     */
+    public Profile updateInformation(FullName fullName) {
+        this.fullName = Objects.requireNonNull(fullName, "fullName must not be null");
+        return this;
+    }
+
+    /**
      * Updates the preferences of the profile.
      *
      * @param preferences new preferences
