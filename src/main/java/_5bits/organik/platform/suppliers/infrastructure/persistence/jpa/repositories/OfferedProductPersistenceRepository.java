@@ -19,6 +19,8 @@ public interface OfferedProductPersistenceRepository extends JpaRepository<Offer
 
     List<OfferedProductPersistenceEntity> findAllBySupplierId(SupplierId supplierId);
 
+    Optional<OfferedProductPersistenceEntity> findBySupplierIdAndLotCode(SupplierId supplierId, LotCode lotCode);
+
     boolean existsBySupplierIdAndLotCode(SupplierId supplierId, LotCode lotCode);
 
     boolean existsBySupplierIdAndLotCodeAndIdIsNot(SupplierId supplierId, LotCode lotCode, Long id);

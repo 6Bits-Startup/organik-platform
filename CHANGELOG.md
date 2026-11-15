@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Suppliers**: accepting a shipment order now decreases the available units of the offered lot in the supplier catalog (`ShipmentOrderAcceptedEventHandler` of the suppliers bounded context). The availability never drops below zero.
+
 ## [1.0.0] - 2026-11-15
 
 First release of OrganiK Platform, the RESTful API used by the OrganiK web application 2.0.0.
