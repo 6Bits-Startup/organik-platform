@@ -51,6 +51,12 @@ public class OfferedProductRepositoryImpl implements OfferedProductRepository {
     }
 
     @Override
+    public Optional<OfferedProduct> findBySupplierIdAndLotCode(SupplierId supplierId, LotCode lotCode) {
+        return offeredProductPersistenceRepository.findBySupplierIdAndLotCode(supplierId, lotCode)
+                .map(OfferedProductPersistenceAssembler::toDomainFromPersistence);
+    }
+
+    @Override
     public boolean existsBySupplierIdAndLotCode(SupplierId supplierId, LotCode lotCode) {
         return offeredProductPersistenceRepository.existsBySupplierIdAndLotCode(supplierId, lotCode);
     }
