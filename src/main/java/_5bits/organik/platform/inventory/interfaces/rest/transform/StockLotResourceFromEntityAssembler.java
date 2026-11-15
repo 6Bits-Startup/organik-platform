@@ -17,6 +17,8 @@ public class StockLotResourceFromEntityAssembler {
                 entity.getQuantity().value(),
                 entity.getMinimumStock().value(),
                 entity.getExpirationDate().value(),
+                entity.getLocation().value(),
+                entity.getNotes().value(),
                 entity.isLowStock());
     }
 }

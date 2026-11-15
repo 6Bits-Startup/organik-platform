@@ -30,7 +30,9 @@ public final class StockLotPersistenceAssembler {
                 entity.getLotCode(),
                 entity.getQuantity(),
                 entity.getMinimumStock(),
-                entity.getExpirationDate());
+                entity.getExpirationDate(),
+                entity.getLocation(),
+                entity.getNotes());
     }
 
     /**
@@ -51,6 +53,8 @@ public final class StockLotPersistenceAssembler {
         entity.setQuantity(stockLot.getQuantity());
         entity.setMinimumStock(stockLot.getMinimumStock());
         entity.setExpirationDate(stockLot.getExpirationDate());
+        entity.setLocation(stockLot.getLocation());
+        entity.setNotes(stockLot.getNotes());
         return entity;
     }
 }

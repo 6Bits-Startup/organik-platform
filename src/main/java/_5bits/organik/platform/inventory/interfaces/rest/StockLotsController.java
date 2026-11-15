@@ -8,8 +8,10 @@ import _5bits.organik.platform.inventory.domain.model.queries.GetStockLotByIdQue
 import _5bits.organik.platform.inventory.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.CreateStockLotResource;
 import _5bits.organik.platform.inventory.interfaces.rest.resources.StockLotResource;
+import _5bits.organik.platform.inventory.interfaces.rest.resources.UpdateStockLotResource;
 import _5bits.organik.platform.inventory.interfaces.rest.transform.CreateStockLotCommandFromResourceAssembler;
 import _5bits.organik.platform.inventory.interfaces.rest.transform.StockLotResourceFromEntityAssembler;
+import _5bits.organik.platform.inventory.interfaces.rest.transform.UpdateStockLotCommandFromResourceAssembler;
 import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
 import _5bits.organik.platform.shared.interfaces.rest.transform.ProblemDetailFromApplicationErrorAssembler;
@@ -104,5 +106,32 @@ public class StockLotsController {
         }
         var error = ApplicationError.validationError("minimarketId", "Query parameter minimarketId is required");
         return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
+    }
+
+    @PutMapping("/{stockLotId}")
+    @Operation(summary = "Update stock lot", description = "Updates the location, notes and expiration date of a stock lot. Its quantity only changes through inventory movements.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Stock lot updated successfully",
+                    content = @Content(schema = @Schema(implementation = StockLotResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "404", description = "Stock lot not found")
+    })
+    public ResponseEntity<?> updateStockLot(
+            @PathVariable
+            @Parameter(description = "Stock lot unique identifier", example = "1", required = true)
+            Long stockLotId,
+            @Valid @RequestBody UpdateStockLotResource resource
+    ) {
+        var command = UpdateStockLotCommandFromResourceAssembler.toCommandFromResource(stockLotId, resource);
+        var result = stockLotCommandService.handle(command)
+                .flatMap(id -> stockLotQueryService.handle(new GetStockLotByIdQuery(id))
+                        .<Result<StockLot, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("StockLot", id.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                StockLotResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.OK
+        );
     }
 }

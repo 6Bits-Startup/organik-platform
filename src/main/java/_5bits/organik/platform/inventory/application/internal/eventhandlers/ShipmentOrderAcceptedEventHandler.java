@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ShipmentOrderAcceptedEventHandler {
     private static final int DEFAULT_MINIMUM_STOCK = 0;
+    private static final String RECEPTION_LOCATION = "Reception";
     private final StockLotCommandService stockLotCommandService;
 
     public ShipmentOrderAcceptedEventHandler(StockLotCommandService stockLotCommandService) {
@@ -30,7 +31,9 @@ public class ShipmentOrderAcceptedEventHandler {
                     new LotCode(line.lotCode()),
                     new Quantity(line.quantity()),
                     new Quantity(DEFAULT_MINIMUM_STOCK),
-                    new ExpirationDate(line.expiresOn()));
+                    new ExpirationDate(line.expiresOn()),
+                    new LotLocation(RECEPTION_LOCATION),
+                    new LotNotes("Shipment order %d".formatted(event.shipmentOrderId())));
             var result = stockLotCommandService.handle(command);
             if (result instanceof _5bits.organik.platform.shared.application.result.Result.Failure(var error)) {
                 log.warn("Failed to register stock lot {} for shipment order {}: {}",

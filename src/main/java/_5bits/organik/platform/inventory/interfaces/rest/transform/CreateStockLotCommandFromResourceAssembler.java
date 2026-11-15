@@ -15,6 +15,8 @@ public class CreateStockLotCommandFromResourceAssembler {
                 new LotCode(resource.lotCode()),
                 new Quantity(resource.quantity()),
                 new Quantity(resource.minimumStock()),
-                new ExpirationDate(resource.expirationDate()));
+                new ExpirationDate(resource.expirationDate()),
+                new LotLocation(resource.location()),
+                new LotNotes(resource.notes() == null ? "" : resource.notes()));
     }
 }

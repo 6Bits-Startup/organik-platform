@@ -13,7 +13,8 @@ class StockLotTest {
 
     private StockLot stockLotWith(int quantity, int minimumStock) {
         return StockLot.reconstitute(1L, new MinimarketId("mm-vida-verde"), new ProductId("ORG-01"), new LotCode("LT-204"),
-                new Quantity(quantity), new Quantity(minimumStock), new ExpirationDate(LocalDate.of(2026, 12, 20)));
+                new Quantity(quantity), new Quantity(minimumStock), new ExpirationDate(LocalDate.of(2026, 12, 20)),
+                new LotLocation("Cold room 1"), new LotNotes(""));
     }
 
     @Test

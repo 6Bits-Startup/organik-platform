@@ -38,7 +38,8 @@ class InventoryMovementCommandServiceImplTest {
 
     private StockLot stockLot() {
         return StockLot.reconstitute(1L, new MinimarketId("mm-vida-verde"), new ProductId("ORG-01"), new LotCode("LT-204"),
-                new Quantity(30), new Quantity(10), new ExpirationDate(LocalDate.of(2026, 12, 20)));
+                new Quantity(30), new Quantity(10), new ExpirationDate(LocalDate.of(2026, 12, 20)),
+                new LotLocation("Cold room 1"), new LotNotes(""));
     }
 
     @Test

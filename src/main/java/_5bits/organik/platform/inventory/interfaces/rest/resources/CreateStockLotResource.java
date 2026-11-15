@@ -40,6 +40,15 @@ public record CreateStockLotResource(
 
     @Schema(description = "Expiration date", example = "2026-12-20")
     @NotNull(message = "{inventory.error.expirationDate.notNull}")
-    LocalDate expirationDate
+    LocalDate expirationDate,
+
+    @Schema(description = "Place of the minimarket where the lot is kept", example = "Cold room 1", maxLength = 100)
+    @NotBlank(message = "{inventory.error.location.notBlank}")
+    @Size(max = 100, message = "{inventory.error.location.size}")
+    String location,
+
+    @Schema(description = "Notes about the lot", example = "Received in good condition", maxLength = 500)
+    @Size(max = 500, message = "{inventory.error.notes.size}")
+    String notes
 ) {
 }

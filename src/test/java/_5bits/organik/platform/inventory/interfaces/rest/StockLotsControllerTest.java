@@ -42,12 +42,13 @@ class StockLotsControllerTest {
     }
 
     private final CreateStockLotResource resource = new CreateStockLotResource(
-            "mm-vida-verde", "ORG-01", "LT-204", 30, 10, LocalDate.of(2026, 12, 20));
+            "mm-vida-verde", "ORG-01", "LT-204", 30, 10, LocalDate.of(2026, 12, 20), "Cold room 1", "");
 
     @Test
     void createStockLotReturnsCreatedWhenSuccessful() {
         var stockLot = StockLot.reconstitute(1L, new MinimarketId("mm-vida-verde"), new ProductId("ORG-01"), new LotCode("LT-204"),
-                new Quantity(30), new Quantity(10), new ExpirationDate(LocalDate.of(2026, 12, 20)));
+                new Quantity(30), new Quantity(10), new ExpirationDate(LocalDate.of(2026, 12, 20)),
+                new LotLocation("Cold room 1"), new LotNotes(""));
         when(stockLotCommandService.handle(any(CreateStockLotCommand.class))).thenReturn(Result.success(1L));
         when(stockLotQueryService.handle(any(GetStockLotByIdQuery.class))).thenReturn(Optional.of(stockLot));
 

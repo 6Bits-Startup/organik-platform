@@ -2,11 +2,15 @@ package _5bits.organik.platform.inventory.infrastructure.persistence.jpa.entitie
 
 import _5bits.organik.platform.inventory.domain.model.valueobjects.ExpirationDate;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.LotCode;
+import _5bits.organik.platform.inventory.domain.model.valueobjects.LotLocation;
+import _5bits.organik.platform.inventory.domain.model.valueobjects.LotNotes;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.ProductId;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.Quantity;
 import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.ExpirationDatePersistenceConverter;
 import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.LotCodePersistenceConverter;
+import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.LotLocationPersistenceConverter;
+import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.LotNotesPersistenceConverter;
 import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.MinimarketIdPersistenceConverter;
 import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.ProductIdPersistenceConverter;
 import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.QuantityPersistenceConverter;
@@ -55,4 +59,12 @@ public class StockLotPersistenceEntity extends AuditableAbstractPersistenceEntit
     @Convert(converter = ExpirationDatePersistenceConverter.class)
     @Column(name = "expiration_date", nullable = false)
     private ExpirationDate expirationDate;
+
+    @Convert(converter = LotLocationPersistenceConverter.class)
+    @Column(name = "location", nullable = false, length = 100)
+    private LotLocation location;
+
+    @Convert(converter = LotNotesPersistenceConverter.class)
+    @Column(name = "notes", nullable = false, length = 500)
+    private LotNotes notes;
 }

@@ -46,6 +46,8 @@ class StockLotRepositoryImplTest {
         entity.setQuantity(new Quantity(quantity));
         entity.setMinimumStock(new Quantity(20));
         entity.setExpirationDate(new ExpirationDate(LocalDate.of(2026, 12, 20)));
+        entity.setLocation(new LotLocation("Cold room 1"));
+        entity.setNotes(new LotNotes(""));
         return entity;
     }
 

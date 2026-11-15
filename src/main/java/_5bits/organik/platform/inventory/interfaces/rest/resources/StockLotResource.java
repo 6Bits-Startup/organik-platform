@@ -23,6 +23,10 @@ public record StockLotResource(
     Integer minimumStock,
     @Schema(description = "Expiration date", example = "2026-12-20")
     LocalDate expirationDate,
+    @Schema(description = "Place of the minimarket where the lot is kept", example = "Cold room 1")
+    String location,
+    @Schema(description = "Notes about the lot", example = "Received in good condition")
+    String notes,
     @Schema(description = "Whether the lot is at or below its minimum stock", example = "false")
     boolean lowStock
 ) {
