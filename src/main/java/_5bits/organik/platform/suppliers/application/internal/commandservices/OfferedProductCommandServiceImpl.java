@@ -5,6 +5,7 @@ import _5bits.organik.platform.shared.application.result.Result;
 import _5bits.organik.platform.suppliers.application.commandservices.OfferedProductCommandService;
 import _5bits.organik.platform.suppliers.domain.model.aggregates.OfferedProduct;
 import _5bits.organik.platform.suppliers.domain.model.commands.CreateOfferedProductCommand;
+import _5bits.organik.platform.suppliers.domain.model.commands.DecreaseOfferedProductAvailabilityCommand;
 import _5bits.organik.platform.suppliers.domain.model.commands.UpdateOfferedProductCommand;
 import _5bits.organik.platform.suppliers.domain.repositories.OfferedProductRepository;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,20 @@ public class OfferedProductCommandServiceImpl implements OfferedProductCommandSe
             return Result.success(updatedOfferedProduct.getId());
         } catch (Exception e) {
             return Result.failure(ApplicationError.unexpected("update-offered-product", e.getMessage()));
+        }
+    }
+
+    @Override
+    public Result<Long, ApplicationError> handle(DecreaseOfferedProductAvailabilityCommand command) {
+        var result = offeredProductRepository.findBySupplierIdAndLotCode(command.supplierId(), command.lotCode());
+        if (result.isEmpty())
+            return Result.failure(ApplicationError.notFound("OfferedProduct", command.lotCode().value()));
+        try {
+            var updatedOfferedProduct = offeredProductRepository.save(
+                    result.get().decreaseAvailability(command.shippedQuantity()));
+            return Result.success(updatedOfferedProduct.getId());
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("decrease-offered-product-availability", e.getMessage()));
         }
     }
 }

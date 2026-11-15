@@ -59,4 +59,17 @@ public class OfferedProduct extends AbstractDomainAggregateRoot<OfferedProduct> 
         this.expiresOn = Objects.requireNonNull(expiresOn, "expiresOn must not be null");
         return this;
     }
+
+    /**
+     * Decreases the availability of the offered product by the units shipped to a minimarket.
+     * The availability never drops below zero.
+     *
+     * @param shippedQuantity units shipped in an accepted shipment order
+     * @return the updated offered product
+     */
+    public OfferedProduct decreaseAvailability(Quantity shippedQuantity) {
+        Objects.requireNonNull(shippedQuantity, "shippedQuantity must not be null");
+        this.availableQuantity = new Quantity(Math.max(0, availableQuantity.value() - shippedQuantity.value()));
+        return this;
+    }
 }

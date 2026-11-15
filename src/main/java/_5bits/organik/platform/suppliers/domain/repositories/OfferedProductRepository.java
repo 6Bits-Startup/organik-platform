@@ -22,6 +22,8 @@ public interface OfferedProductRepository {
 
     List<OfferedProduct> findAllBySupplierId(SupplierId supplierId);
 
+    Optional<OfferedProduct> findBySupplierIdAndLotCode(SupplierId supplierId, LotCode lotCode);
+
     boolean existsBySupplierIdAndLotCode(SupplierId supplierId, LotCode lotCode);
 
     boolean existsBySupplierIdAndLotCodeAndIdIsNot(SupplierId supplierId, LotCode lotCode, Long id);
