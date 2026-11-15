@@ -41,6 +41,17 @@ described in the README before running the complete test suite.
   persistence or transport details to the domain model.
 - Use the ubiquitous language consistently in types, methods, tests, and
   documentation.
+- Follow the hexagonal structure of [ADR-0004](docs/adrs.md#adr-0004-hexagonal-architecture-with-a-pure-domain):
+  pure aggregates with `reconstitute(...)`, repository ports with
+  `RepositoryImpl` adapters, persistence entities, assemblers and converters.
+- Command services return `Result<Long, ApplicationError>`; map errors with
+  `ProblemDetailFromApplicationErrorAssembler` and add their messages to
+  `messages.properties` and `messages_es.properties`.
+- Cross-context reads go through ACL facades and reactions through integration
+  events ([ADR-0008](docs/adrs.md#adr-0008-collaboration-through-integration-events-and-acl-facades)).
+- Document every endpoint with OpenAPI annotations so that it appears in the
+  Scalar API Reference, and regenerate `docs/user-stories.md` and
+  `docs/class-diagram.puml` when endpoints or aggregates change.
 - When changing a durable architectural decision, add an ADR or superseding ADR
   in `docs/adrs.md`.
 
@@ -51,7 +62,7 @@ Use Git Flow-style branches:
 - `main` contains releasable code.
 - `develop` is the integration branch.
 - Create feature branches from `develop` using
-  `feature/<short-description>`, for example `feature/iam-api`.
+  `feature/<short-description>`, for example `feature/stock-lot-update`.
 - Use `bugfix/<short-description>` or `hotfix/<short-description>` for fixes,
   based on whether the fix targets integration work or a released version.
 - Use `release/<version>` for release stabilization when that workflow is in
@@ -59,7 +70,8 @@ Use Git Flow-style branches:
 
 When a feature branch is finished, merge it into `develop` with
 `git merge --no-ff` and delete the branch. Keep branches focused and up to date
-with `develop`. Do not rewrite shared branch history.
+with `develop`. Do not rewrite shared branch history. Only `main` and `develop`
+are long-lived; delete feature, release and hotfix branches once merged.
 
 ## Commit messages
 
@@ -98,10 +110,20 @@ Release versions use `MAJOR.MINOR.PATCH`:
 - Increment **MINOR** for backward-compatible functionality.
 - Increment **PATCH** for backward-compatible bug fixes.
 
-Until `1.0.0`, the public API is not considered stable; document compatibility
-implications clearly. Follow the repository's release process when preparing a
-release, and ensure the Maven project version and release notes agree with the
-chosen version. Conventional Commit types can help identify changes, but do not
+Since `1.0.0` the REST API is considered stable: removing or changing an
+endpoint, a field or a status code requires a new MAJOR version. Ensure the
+Maven project version, `CHANGELOG.md` and the release notes agree with the
+chosen version.
+
+### Release process
+
+1. Move the entries of `## [Unreleased]` in `CHANGELOG.md` to a new
+   `## [X.Y.Z] - YYYY-MM-DD` section and set `<version>X.Y.Z</version>` in
+   `pom.xml` (`chore(release): prepare X.Y.Z`).
+2. Merge `develop` into `main` with a pull request.
+3. On GitHub, draft a release with the tag `vX.Y.Z` on `main`, use the
+   changelog section as its notes and publish it.
+4. Merge `main` back into `develop` if the release added commits to `main`. Conventional Commit types can help identify changes, but do not
 replace reviewing the actual compatibility impact.
 
 ## Before merging

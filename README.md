@@ -2,6 +2,9 @@
 
 OrganiK Platform is the RESTful API of OrganiK, the web application that helps minimarkets of organic products control their inventory, expiration dates, supply and conservation conditions, and connects them with their suppliers. It is built on Domain-Driven Design with a hexagonal (ports and adapters) architecture, CQRS application services, and JWT-based security.
 
+- **Current version:** 1.0.0 (see [CHANGELOG.md](CHANGELOG.md)).
+- **Web application:** [organik-web-application](https://github.com/6Bits-Startup/organik-web-application) 2.0.0 consumes this API.
+
 ## Tech Stack
 
 | Category         | Technology                                      |
@@ -56,7 +59,8 @@ bounded_context/
 - `procurements` publishes `ShipmentOrderAcceptedIntegrationEvent`: `inventory` registers the stock lots of the order and `communication` creates an `ORDER` notification.
 - `inventory` publishes `StockLotLowStockIntegrationEvent` when a lot reaches its minimum stock: `communication` creates a `LOW_STOCK` notification.
 - `conservation` publishes `StorageReadingOutOfRangeIntegrationEvent`: `communication` creates a `CONSERVATION` notification.
-- `analytics` records the three integration events above in the activity history.
+- `analytics` records the three integration events above in the activity history of the minimarket they belong to.
+- `profiles` shares the expiration thresholds among every profile of a minimarket: updating them in one profile updates the others, and a new profile adopts them.
 - `dashboard` and `analytics` read the other contexts through their ACL facades (`InventoryContextFacade`, `ProcurementsContextFacade`, `RequisitionContextFacade`, `CommunicationContextFacade`, `ConservationContextFacade`, `ProfilesContextFacade`).
 
 ## Configuration
@@ -83,6 +87,14 @@ Copy `.env.example` to `.env` (never commit it) or export the variables in your 
 ### 1) Database Setup
 
 Start MySQL. In the `dev` profile the database is created automatically if it does not exist.
+
+Without a local MySQL, a container works as well; set `DATABASE_PORT=3308` in the run configuration:
+
+```bash
+docker run --name organik-mysql -e MYSQL_ROOT_PASSWORD=password -p 3308:3306 -d mysql:8.4
+```
+
+When the schema changes between versions (for example from 0.1.0 to 1.0.0, which adds required columns), recreate the database instead of reusing the old one.
 
 ### 2) Run the Application
 
@@ -125,14 +137,14 @@ On start-up the application seeds the IAM roles and the default product categori
 | Bounded context | Endpoints |
 |-----------------|-----------|
 | IAM             | `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `POST /api/v1/tokens`, `GET /api/v1/roles` |
-| Profiles        | `POST /api/v1/profiles`, `GET /api/v1/profiles` (`userId`, `minimarketId`), `GET /api/v1/profiles/{profileId}`, `PUT /api/v1/profiles/{profileId}/preferences` |
+| Profiles        | `POST /api/v1/profiles`, `GET /api/v1/profiles` (`userId`, `minimarketId`), `GET/PUT /api/v1/profiles/{profileId}`, `PUT /api/v1/profiles/{profileId}/preferences` |
 | Products        | `POST/GET /api/v1/categories`, `GET /api/v1/categories/{categoryId}`, `POST/GET /api/v1/products` (`categoryId`), `GET/PUT /api/v1/products/{productId}` |
-| Inventory       | `POST/GET /api/v1/stock-lots` (`minimarketId`), `GET /api/v1/stock-lots/{stockLotId}`, `POST/GET /api/v1/offers` (`stockLotId`), `GET /api/v1/offers/{offerId}`, `POST/GET /api/v1/inventory-movements` (`stockLotId`), `GET /api/v1/inventory-movements/{inventoryMovementId}` |
-| Suppliers       | `POST/GET /api/v1/suppliers`, `GET /api/v1/suppliers/{supplierId}`, `POST/GET /api/v1/offered-products` (`supplierId`), `GET /api/v1/offered-products/{offeredProductId}` |
+| Inventory       | `POST/GET /api/v1/stock-lots` (`minimarketId`), `GET/PUT /api/v1/stock-lots/{stockLotId}`, `POST/GET /api/v1/offers` (`stockLotId`), `GET /api/v1/offers/{offerId}`, `POST/GET /api/v1/inventory-movements` (`stockLotId`), `GET /api/v1/inventory-movements/{inventoryMovementId}` |
+| Suppliers       | `POST/GET /api/v1/suppliers`, `GET /api/v1/suppliers/{supplierId}`, `POST/GET /api/v1/offered-products` (`supplierId`), `GET/PUT /api/v1/offered-products/{offeredProductId}` |
 | Requisition     | `POST/GET /api/v1/supply-requests` (`minimarketId`, `supplierId`), `GET /api/v1/supply-requests/{supplyRequestId}`, `POST /api/v1/supply-requests/{supplyRequestId}/acceptances`, `POST /api/v1/supply-requests/{supplyRequestId}/rejections` |
 | Procurements    | `POST/GET /api/v1/shipment-orders` (`supplierId`, `minimarketId`), `GET /api/v1/shipment-orders/{shipmentOrderId}`, `POST /api/v1/shipment-orders/{shipmentOrderId}/acceptances`, `POST /api/v1/shipment-orders/{shipmentOrderId}/rejections` |
-| Conservation    | `POST/GET /api/v1/storage-zones`, `GET /api/v1/storage-zones/{storageZoneId}`, `POST/GET /api/v1/storage-readings` (`storageZoneId`), `GET /api/v1/storage-readings/{storageReadingId}` |
-| Communication   | `POST/GET /api/v1/notifications`, `GET /api/v1/notifications/{notificationId}`, `POST /api/v1/notifications/{notificationId}/readings` |
+| Conservation    | `POST/GET /api/v1/storage-zones` (`minimarketId`), `GET /api/v1/storage-zones/{storageZoneId}`, `POST/GET /api/v1/storage-readings` (`storageZoneId`), `GET /api/v1/storage-readings/{storageReadingId}` |
+| Communication   | `POST/GET /api/v1/notifications` (`minimarketId`), `GET /api/v1/notifications/{notificationId}`, `POST /api/v1/notifications/{notificationId}/readings` |
 | Dashboard       | `GET /api/v1/dashboard` (`minimarketId`, optional `userId` to use the expiration warning days of that user profile) |
 | Analytics       | `GET /api/v1/operational-indicators` (`minimarketId`), `GET /api/v1/activity-records` (`minimarketId`), `GET /api/v1/activity-records/{activityRecordId}` |
 
@@ -143,7 +155,16 @@ On start-up the application seeds the IAM roles and the default product categori
 - **CQRS**: command services return `Result<Long, ApplicationError>`; query services return `Optional` or `List`.
 - **Errors**: failures are returned as RFC 9457 `ProblemDetail` with a `code`, localized in English (default) or Spanish through `Accept-Language`.
 - **Naming**: tables are snake_case and plural; value objects are stored with `PersistenceConverter` classes.
-- **Git**: GitFlow with Conventional Commits.
+- **Minimarket scope**: resources of a minimarket keep its `minimarketId` and their collections are read with a required `minimarketId` (or `supplierId`) query parameter.
+- **Updates**: `PUT /{id}` endpoints map the request to an `Update…Command` that calls `updateInformation(...)` on the aggregate.
+- **Git**: GitFlow with Conventional Commits; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Documentation
+
+- [Architecture decision records](docs/adrs.md)
+- [Class diagram](docs/class-diagram.puml) (PlantUML)
+- [REST API technical stories](docs/user-stories.md)
+- Scalar API Reference at `http://localhost:8080/scalar` while the application runs
 
 ## License
 

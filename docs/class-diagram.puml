@@ -1,299 +1,598 @@
 @startuml
-' OrganiK Platform Class Diagram
+' OrganiK Platform 1.0.0 - domain model by bounded context
+' Generated from the source code: aggregates, entities, value objects, domain and integration events and ACL facades.
 
 skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+hide empty members
 
 package "iam" {
-  package "interfaces.rest" {
-    class UsersController <<rest-controller>> {
-      +createUser(CreateUserResource) : ResponseEntity<?>
-      +getUserById(Long) : ResponseEntity<?>
-      +getUsersWithParameters(String, String) : ResponseEntity<?>
-    }
-
-    package "interfaces.rest.resources" {
-      class CreateUserResource <<request-resource>> {
-        +String fullName
-        +String email
-        +String role
-        +String minimarketId
-        +String supplierId
-      }
-      class UserResource <<response-resource>> {
-        +Long id
-        +String fullName
-        +String email
-        +String role
-        +String status
-        +String minimarketId
-        +String supplierId
-      }
-    }
-
-    package "interfaces.rest.transform" {
-      class CreateUserCommandFromResourceAssembler <<translator>> {
-        +toCommandFromResource(CreateUserResource) : CreateUserCommand
-      }
-      class IamValueObjectFromStringAssembler <<translator>> {
-        +toFullNameFromString(String) : FullName
-        +toEmailAddressFromString(String) : EmailAddress
-        +toRoleFromString(String) : Role
-        +toMinimarketIdFromString(String) : MinimarketId
-        +toSupplierIdFromString(String) : SupplierId
-      }
-      class UserResourceFromEntityAssembler <<translator>> {
-        +toResourceFromEntity(User) : UserResource
-      }
-      class ResponseEntityFromUserCommandResultAssembler <<translator>> {
-        +toResponseEntityFromResult(Result<User, UserCommandFailure>, MessageSource) : ResponseEntity<?>
-      }
-      class ResponseEntityFromUserQueryResultAssembler <<translator>> {
-        +toResponseEntityFromUser(User) : ResponseEntity<?>
-        +toResponseEntityFromList(List<User>) : ResponseEntity<?>
-        +badRequest(MessageSource, String, Object...) : ResponseEntity<ProblemDetail>
-        +notFound(MessageSource, String, Object...) : ResponseEntity<ProblemDetail>
-      }
-    }
+  class User <<aggregate-root>> {
+    -id : Long
+    -username : String
+    -password : String
+    -roles : Set<Role>
+    {static} +reconstitute(Long, String, String, Set<Role>) : User
+    +addRole(Role) : User
+    +addRoles(List<Role>) : User
   }
-
-  package "application.commandservices" {
-    interface UserCommandService <<application-service>> {
-      +handle(CreateUserCommand) : Result<User, UserCommandFailure>
-    }
-    interface UserCommandFailure <<failure>> {
-      +messageKey() : String
-    }
-    class "UserCommandFailure.Duplicate" as UserCommandFailureDuplicate <<failure>> {
-      +messageKey() : String
-    }
+  class Role <<entity>> {
+    -id : Long
+    -name : Roles
+    +getStringName() : String
+    {static} +getDefaultRole() : Role
+    {static} +toRoleFromName(String) : Role
+    {static} +validateRoleSet(List<Role>) : List<Role>
   }
-
-  package "application.queryservices" {
-    interface UserQueryService <<application-service>> {
-      +handle(GetAllUsersByMinimarketIdQuery) : List<User>
-      +handle(GetUserByIdQuery) : Optional<User>
-      +handle(GetUserByEmailQuery) : Optional<User>
-    }
+  enum Roles <<value-object>> {
+    ROLE_ADMINISTRATOR
+    ROLE_OPERATOR
+    ROLE_SUPPLIER
   }
-
-  package "application.internal.commandservices" {
-    class UserCommandServiceImpl <<application-service>> {
-      +handle(CreateUserCommand) : Result<User, UserCommandFailure>
-      -duplicateResult() : Result<User, UserCommandFailure>
-      -isDuplicateUserViolation(DataIntegrityViolationException) : boolean
-    }
+  interface IamContextFacade <<acl-facade>> {
+    +createUser(String, String) : Long
+    +createUser(String, String, List<String>) : Long
+    +fetchUserIdByUsername(String) : Long
+    +fetchUsernameByUserId(Long) : String
   }
+}
 
-  package "application.internal.queryservices" {
-    class UserQueryServiceImpl <<application-service>> {
-      +handle(GetAllUsersByMinimarketIdQuery) : List<User>
-      +handle(GetUserByIdQuery) : Optional<User>
-      +handle(GetUserByEmailQuery) : Optional<User>
-    }
+package "profiles" {
+  class Profile <<aggregate-root>> {
+    -id : Long
+    -userId : UserId
+    -fullName : FullName
+    -email : EmailAddress
+    -minimarketId : MinimarketId
+    -supplierId : SupplierId
+    -preferences : Preferences
+    {static} +reconstitute(Long, UserId, FullName, EmailAddress, MinimarketId, SupplierId, Preferences) : Profile
+    +updateInformation(FullName) : Profile
+    +updatePreferences(Preferences) : Profile
+    +adoptExpirationThresholds(Preferences) : Profile
   }
-
-  package "domain.model.aggregates" {
-    class User <<aggregate-root>> {
-      +EMAIL_UNIQUE_CONSTRAINT : String
-      -Long id
-      -FullName fullName
-      -EmailAddress email
-      -Role role
-      -UserStatus status
-      -MinimarketId minimarketId
-      -SupplierId supplierId
-      -Instant createdAt
-      -Instant updatedAt
-      +User(CreateUserCommand)
-      +getId() : Long
-      +getFullName() : FullName
-      +getEmail() : EmailAddress
-      +getRole() : Role
-      +getStatus() : UserStatus
-      +getMinimarketId() : MinimarketId
-      +getSupplierId() : SupplierId
-      +getCreatedAt() : Instant
-      +getUpdatedAt() : Instant
-    }
+  class EmailAddress <<value-object>> {
+    +value : String
   }
-
-  package "domain.model.commands" {
-    class CreateUserCommand <<command>> {
-      +FullName fullName
-      +EmailAddress email
-      +Role role
-      +MinimarketId minimarketId
-      +SupplierId supplierId
-    }
+  class ExpirationThreshold <<value-object>> {
+    +days : Integer
   }
-
-  package "domain.model.queries" {
-    class GetAllUsersByMinimarketIdQuery <<query>> {
-      +MinimarketId minimarketId
-    }
-    class GetUserByIdQuery <<query>> {
-      +Long id
-    }
-    class GetUserByEmailQuery <<query>> {
-      +EmailAddress email
-    }
+  class FullName <<value-object>> {
+    +value : String
   }
-
-  package "domain.model.valueobjects" {
-    class FullName <<value-object>> {
-      +String value
-    }
-    class EmailAddress <<value-object>> {
-      +String value
-    }
-    class MinimarketId <<value-object>> {
-      +String value
-    }
-    class SupplierId <<value-object>> {
-      +String value
-    }
-    enum Role <<value-object>> {
-      ADMINISTRATOR
-      OPERATOR
-      SUPPLIER
-    }
-    enum UserStatus <<value-object>> {
-      PENDING
-      ACCEPTED
-    }
+  class Language <<value-object>> {
+    +value : String
   }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+  class Preferences <<value-object>> {
+    +language : Language
+    +warningExpirationDays : ExpirationThreshold
+    +criticalExpirationDays : ExpirationThreshold
+  }
+  class SupplierId <<value-object>> {
+    +value : String
+  }
+  class UserId <<value-object>> {
+    +value : Long
+  }
+  interface ProfilesContextFacade <<acl-facade>> {
+    +fetchWarningExpirationDaysByUserId(Long) : Integer
+  }
+}
 
-  package "infrastructure.persistence.jpa" {
-    interface UserRepository <<spring-data-repository>> {
-      +findAllByMinimarketId(MinimarketId) : List<User>
-      +existsByEmail(EmailAddress) : boolean
-      +findByEmail(EmailAddress) : Optional<User>
-    }
-    interface "JpaRepository<User, Long>" as JpaRepository <<Spring Data>>
+package "products" {
+  class Category <<aggregate-root>> {
+    -id : Long
+    -name : CategoryName
+    -tone : CategoryTone
+    {static} +reconstitute(Long, CategoryName, CategoryTone) : Category
+  }
+  class Product <<aggregate-root>> {
+    -id : Long
+    -sku : Sku
+    -name : ProductName
+    -categoryId : CategoryId
+    -supplierId : SupplierId
+    -unit : MeasurementUnit
+    -minimumStock : MinimumStock
+    {static} +reconstitute(Long, Sku, ProductName, CategoryId, SupplierId, MeasurementUnit, MinimumStock) : Product
+    +updateInformation(ProductName, CategoryId, SupplierId, MeasurementUnit, MinimumStock) : Product
+  }
+  class CategoryId <<value-object>> {
+    +value : Long
+  }
+  class CategoryName <<value-object>> {
+    +value : String
+  }
+  enum CategoryTone <<value-object>> {
+    GREEN
+    BLUE
+    ORANGE
+    YELLOW
+    NEUTRAL
+  }
+  enum DefaultCategories <<value-object>> {
+    FRUITS_VEGETABLES
+    DAIRY
+    GRAINS
+    BEVERAGES
+    BAKERY
+    FROZEN
+  }
+  enum MeasurementUnit <<value-object>> {
+    UNIT
+    KG
+    LITER
+    PACK
+  }
+  class MinimumStock <<value-object>> {
+    +value : Integer
+  }
+  class ProductName <<value-object>> {
+    +value : String
+  }
+  class Sku <<value-object>> {
+    +value : String
+  }
+  class SupplierId <<value-object>> {
+    +value : String
+  }
+}
 
-    class FullNameAttributeConverter <<jpa-converter>> {
-      +convertToDatabaseColumn(FullName) : String
-      +convertToEntityAttribute(String) : FullName
-    }
-    class EmailAddressAttributeConverter <<jpa-converter>> {
-      +convertToDatabaseColumn(EmailAddress) : String
-      +convertToEntityAttribute(String) : EmailAddress
-    }
-    class MinimarketIdAttributeConverter <<jpa-converter>> {
-      +convertToDatabaseColumn(MinimarketId) : String
-      +convertToEntityAttribute(String) : MinimarketId
-    }
-    class SupplierIdAttributeConverter <<jpa-converter>> {
-      +convertToDatabaseColumn(SupplierId) : String
-      +convertToEntityAttribute(String) : SupplierId
-    }
+package "inventory" {
+  class InventoryMovement <<aggregate-root>> {
+    -id : Long
+    -stockLotId : StockLotId
+    -type : MovementType
+    -quantity : Quantity
+    -reason : MovementReason
+    -createdAt : Date
+    -updatedAt : Date
+    {static} +reconstitute(Long, StockLotId, MovementType, Quantity, MovementReason, Date, Date) : InventoryMovement
+  }
+  class Offer <<aggregate-root>> {
+    -id : Long
+    -stockLotId : StockLotId
+    -price : OfferPrice
+    -startsOn : LocalDate
+    -endsOn : LocalDate
+    {static} +reconstitute(Long, StockLotId, OfferPrice, LocalDate, LocalDate) : Offer
+    +isActiveOn(LocalDate) : boolean
+  }
+  class StockLot <<aggregate-root>> {
+    -id : Long
+    -minimarketId : MinimarketId
+    -productId : ProductId
+    -lotCode : LotCode
+    -quantity : Quantity
+    -minimumStock : Quantity
+    -expirationDate : ExpirationDate
+    -location : LotLocation
+    -notes : LotNotes
+    {static} +reconstitute(Long, MinimarketId, ProductId, LotCode, Quantity, Quantity, ExpirationDate, LotLocation, LotNotes) : StockLot
+    +updateInformation(LotLocation, LotNotes, ExpirationDate) : StockLot
+    +isLowStock() : boolean
+    +canApplyMovement(MovementType, Quantity) : boolean
+    +applyMovement(MovementType, Quantity) : void
+  }
+  class ExpirationDate <<value-object>> {
+    +value : LocalDate
+  }
+  class LotCode <<value-object>> {
+    +value : String
+  }
+  class LotLocation <<value-object>> {
+    +value : String
+  }
+  class LotNotes <<value-object>> {
+    +value : String
+  }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+  class MovementReason <<value-object>> {
+    +value : String
+  }
+  enum MovementType <<value-object>> {
+    ENTRY
+    EXIT
+    ADJUSTMENT
+    WASTE
+  }
+  class OfferPrice <<value-object>> {
+    +value : BigDecimal
+  }
+  class ProductId <<value-object>> {
+    +value : String
+  }
+  class Quantity <<value-object>> {
+    +value : Integer
+  }
+  class StockLotId <<value-object>> {
+    +value : Long
+  }
+  class StockLotLowStockDetectedEvent <<domain-event>> {
+    +stockLotId : Long
+    +minimarketId : String
+    +productId : String
+    +lotCode : String
+    +quantity : Integer
+    +minimumStock : Integer
+  }
+  class StockLotLowStockIntegrationEvent <<integration-event>> {
+    +stockLotId : Long
+    +minimarketId : String
+    +productId : String
+    +lotCode : String
+    +quantity : Integer
+    +minimumStock : Integer
+  }
+  interface InventoryContextFacade <<acl-facade>> {
+    +countStockLotsByMinimarketId(String) : long
+    +countLowStockLotsByMinimarketId(String) : long
+    +countStockLotsExpiringWithinDays(String, int) : long
+    +countExpiredStockLotsByMinimarketId(String) : long
+    +sumWasteUnitsByMinimarketId(String) : long
+  }
+}
+
+package "suppliers" {
+  class OfferedProduct <<aggregate-root>> {
+    -id : Long
+    -supplierId : SupplierId
+    -productId : ProductId
+    -lotCode : LotCode
+    -availableQuantity : Quantity
+    -expiresOn : LocalDate
+    {static} +reconstitute(Long, SupplierId, ProductId, LotCode, Quantity, LocalDate) : OfferedProduct
+    +updateInformation(LotCode, Quantity, LocalDate) : OfferedProduct
+  }
+  class Supplier <<aggregate-root>> {
+    -id : Long
+    -businessName : BusinessName
+    -contactName : ContactName
+    -phoneNumber : PhoneNumber
+    -email : EmailAddress
+    -categories : Set<SupplierCategory>
+    -organicCertification : OrganicCertification
+    {static} +reconstitute(Long, BusinessName, ContactName, PhoneNumber, EmailAddress, Set<SupplierCategory>, OrganicCertification) : Supplier
+  }
+  class BusinessName <<value-object>> {
+    +value : String
+  }
+  class ContactName <<value-object>> {
+    +value : String
+  }
+  class EmailAddress <<value-object>> {
+    +value : String
+  }
+  class LotCode <<value-object>> {
+    +value : String
+  }
+  class OrganicCertification <<value-object>> {
+    +value : String
+  }
+  class PhoneNumber <<value-object>> {
+    +value : String
+  }
+  class ProductId <<value-object>> {
+    +value : String
+  }
+  class Quantity <<value-object>> {
+    +value : Integer
+  }
+  enum SupplierCategory <<value-object>> {
+    FRUITS_AND_VEGETABLES
+    GRAINS
+    DAIRY
+    FROZEN
+  }
+  class SupplierId <<value-object>> {
+    +value : String
+  }
+}
+
+package "requisition" {
+  class SupplyRequest <<aggregate-root>> {
+    -id : Long
+    -productId : ProductId
+    -supplierId : SupplierId
+    -minimarketId : MinimarketId
+    -quantity : Quantity
+    -reason : RequestReason
+    -requiredDate : LocalDate
+    -priority : RequestPriority
+    -status : RequestStatus
+    {static} +reconstitute(Long, ProductId, SupplierId, MinimarketId, Quantity, RequestReason, LocalDate, RequestPriority, RequestStatus) : SupplyRequest
+    +isPending() : boolean
+    +accept() : void
+    +reject() : void
+  }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+  class ProductId <<value-object>> {
+    +value : String
+  }
+  class Quantity <<value-object>> {
+    +value : Integer
+  }
+  enum RequestPriority <<value-object>> {
+    LOW
+    MEDIUM
+    HIGH
+  }
+  class RequestReason <<value-object>> {
+    +value : String
+  }
+  enum RequestStatus <<value-object>> {
+    PENDING
+    ACCEPTED
+    REJECTED
+  }
+  class SupplierId <<value-object>> {
+    +value : String
+  }
+  interface RequisitionContextFacade <<acl-facade>> {
+    +countSupplyRequestsByMinimarketIdAndStatus(String, String) : long
+  }
+}
+
+package "procurements" {
+  class ShipmentOrder <<aggregate-root>> {
+    -id : Long
+    -supplierId : SupplierId
+    -minimarketId : MinimarketId
+    -lines : List<ShipmentOrderLine>
+    -status : OrderStatus
+    -decidedBy : UserId
+    -decidedAt : Date
+    -rejectionReason : RejectionReason
+    -createdAt : Date
+    -updatedAt : Date
+    {static} +reconstitute(Long, SupplierId, MinimarketId, List<ShipmentOrderLine>, OrderStatus, UserId, Date, RejectionReason, Date, Date) : ShipmentOrder
+    +isPending() : boolean
+    +accept(UserId) : void
+    +reject(UserId, RejectionReason) : void
+  }
+  class ShipmentOrderLine <<entity>> {
+    -id : Long
+    -productId : ProductId
+    -quantity : Quantity
+    -lotCode : LotCode
+    -expiresOn : LocalDate
+    {static} +reconstitute(Long, ProductId, Quantity, LotCode, LocalDate) : ShipmentOrderLine
+  }
+  class LotCode <<value-object>> {
+    +value : String
+  }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+  enum OrderStatus <<value-object>> {
+    PENDING
+    ACCEPTED
+    REJECTED
+  }
+  class ProductId <<value-object>> {
+    +value : String
+  }
+  class Quantity <<value-object>> {
+    +value : Integer
+  }
+  class RejectionReason <<value-object>> {
+    +value : String
+  }
+  class SupplierId <<value-object>> {
+    +value : String
+  }
+  class UserId <<value-object>> {
+    +value : Long
+  }
+  class ShipmentOrderAcceptedEvent <<domain-event>> {
+    +shipmentOrderId : Long
+    +supplierId : String
+    +minimarketId : String
+    +lines : List<AcceptedLine>
+  }
+  class ShipmentOrderAcceptedIntegrationEvent <<integration-event>> {
+    +shipmentOrderId : Long
+    +supplierId : String
+    +minimarketId : String
+    +lines : List<Line>
+  }
+  interface ProcurementsContextFacade <<acl-facade>> {
+    +countShipmentOrdersByMinimarketIdAndStatus(String, String) : long
+  }
+}
+
+package "conservation" {
+  class StorageReading <<aggregate-root>> {
+    -id : Long
+    -storageZoneId : StorageZoneId
+    -minimarketId : MinimarketId
+    -temperature : Temperature
+    -humidity : Humidity
+    -recordedAt : LocalDateTime
+    -source : ReadingSource
+    -withinRange : Boolean
+    {static} +reconstitute(Long, StorageZoneId, MinimarketId, Temperature, Humidity, LocalDateTime, ReadingSource, Boolean) : StorageReading
+    +onRecorded() : void
+  }
+  class StorageZone <<aggregate-root>> {
+    -id : Long
+    -minimarketId : MinimarketId
+    -name : ZoneName
+    -storageCondition : StorageCondition
+    -temperatureRange : TemperatureRange
+    -humidityRange : HumidityRange
+    {static} +reconstitute(Long, MinimarketId, ZoneName, StorageCondition, TemperatureRange, HumidityRange) : StorageZone
+    +isReadingWithinRange(Temperature, Humidity) : boolean
+  }
+  class Humidity <<value-object>> {
+    +value : Double
+  }
+  class HumidityRange <<value-object>> {
+    +min : Humidity
+    +max : Humidity
+  }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+  class ReadingSource <<value-object>> {
+    +value : String
+  }
+  class StorageCondition <<value-object>> {
+    +value : String
+  }
+  class StorageZoneId <<value-object>> {
+    +value : Long
+  }
+  class Temperature <<value-object>> {
+    +value : Double
+  }
+  class TemperatureRange <<value-object>> {
+    +min : Temperature
+    +max : Temperature
+  }
+  class ZoneName <<value-object>> {
+    +value : String
+  }
+  class StorageReadingOutOfRangeEvent <<domain-event>> {
+    +storageReadingId : Long
+    +storageZoneId : Long
+    +minimarketId : String
+    +temperature : Double
+    +humidity : Double
+    +recordedAt : LocalDateTime
+  }
+  class StorageReadingOutOfRangeIntegrationEvent <<integration-event>> {
+    +storageReadingId : Long
+    +storageZoneId : Long
+    +minimarketId : String
+    +temperature : Double
+    +humidity : Double
+    +recordedAt : LocalDateTime
+  }
+  interface ConservationContextFacade <<acl-facade>> {
+    +countOutOfRangeReadings() : long
+  }
+}
+
+package "communication" {
+  class Notification <<aggregate-root>> {
+    -id : Long
+    -minimarketId : MinimarketId
+    -type : NotificationType
+    -severity : Severity
+    -title : NotificationTitle
+    -isRead : Boolean
+    -createdAt : Date
+    -updatedAt : Date
+    {static} +reconstitute(Long, MinimarketId, NotificationType, Severity, NotificationTitle, Boolean, Date, Date) : Notification
+    +markAsRead() : void
+    +isAlreadyRead() : boolean
+  }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+  class NotificationTitle <<value-object>> {
+    +value : String
+  }
+  class NotificationType <<value-object>> {
+    +value : String
+  }
+  class Severity <<value-object>> {
+    +value : String
+  }
+  interface CommunicationContextFacade <<acl-facade>> {
+    +countUnreadNotifications(String) : long
+  }
+}
+
+package "dashboard" {
+  class DashboardSummary <<value-object>> {
+    +minimarketId : MinimarketId
+    +totalStockLots : long
+    +lowStockLots : long
+    +expirationWarningDays : int
+    +expiringSoonLots : long
+    +pendingShipmentOrders : long
+    +pendingSupplyRequests : long
+    +unreadNotifications : long
+  }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+}
+
+package "analytics" {
+  class ActivityRecord <<aggregate-root>> {
+    -id : Long
+    -minimarketId : MinimarketId
+    -type : ActivityType
+    -description : ActivityDescription
+    -createdAt : Date
+    -updatedAt : Date
+    {static} +reconstitute(Long, MinimarketId, ActivityType, ActivityDescription, Date, Date) : ActivityRecord
+  }
+  class ActivityDescription <<value-object>> {
+    +value : String
+  }
+  enum ActivityType <<value-object>> {
+    SHIPMENT_ORDER_ACCEPTED
+    LOW_STOCK_DETECTED
+    STORAGE_READING_OUT_OF_RANGE
+  }
+  class MinimarketId <<value-object>> {
+    +value : String
+  }
+  class OperationalIndicators <<value-object>> {
+    +minimarketId : MinimarketId
+    +expiredLots : long
+    +lotsExpiringWithin7Days : long
+    +lotsExpiringWithin15Days : long
+    +wasteUnits : long
+    +outOfRangeReadings : long
+    +acceptedShipmentOrders : long
+    +rejectedShipmentOrders : long
   }
 }
 
 package "shared" {
-  package "application.result" {
-    interface "Result<T, E>" as Result <<sealed-result>> {
-      +success(T) : Result<T, E>
-      +failure(E) : Result<T, E>
-      +isSuccess() : boolean
-      +isFailure() : boolean
-      +success() : Optional<T>
-      +failure() : Optional<E>
-      +fold(Function<T, R>, Function<E, R>) : R
-    }
-    class "Result.Success<T, E>" as ResultSuccess <<result-variant>> {
-      +T value
-    }
-    class "Result.Failure<T, E>" as ResultFailure <<result-variant>> {
-      +E error
-    }
-  }
-
-  package "infrastructure.persistence.jpa.strategy" {
-    class SnakeCasePhysicalNamingStrategy <<hibernate-strategy>> {
-      +toPhysicalCatalogName(Identifier, JdbcEnvironment) : Identifier
-      +toPhysicalSchemaName(Identifier, JdbcEnvironment) : Identifier
-      +toPhysicalTableName(Identifier, JdbcEnvironment) : Identifier
-      +toPhysicalSequenceName(Identifier, JdbcEnvironment) : Identifier
-      +toPhysicalColumnName(Identifier, JdbcEnvironment) : Identifier
-      -toSnakeCase(Identifier) : Identifier
-      -toPlural(Identifier) : Identifier
-    }
+  abstract class AbstractDomainAggregateRoot <<aggregate-root>> {
+    +domainEvents() : Collection<Object>
+    +clearDomainEvents() : void
   }
 }
 
-' Application and interface dependencies
-UsersController --> UserCommandService : invokes
-UsersController --> UserQueryService : invokes
-UsersController ..> CreateUserResource : accepts
-UsersController --> CreateUserCommandFromResourceAssembler : uses
-UsersController --> IamValueObjectFromStringAssembler : uses
-UsersController --> ResponseEntityFromUserCommandResultAssembler : uses
-UsersController --> ResponseEntityFromUserQueryResultAssembler : uses
+' Relationships inside the bounded contexts
+iam.User "*" --> "*" iam.Role : roles
+procurements.ShipmentOrder *-- "1..*" procurements.ShipmentOrderLine : lines
+products.Product --> products.Category : categoryId
+inventory.InventoryMovement --> inventory.StockLot : stockLotId
+inventory.Offer --> inventory.StockLot : stockLotId
+conservation.StorageReading --> conservation.StorageZone : storageZoneId
+suppliers.OfferedProduct --> suppliers.Supplier : supplierId
 
-UserCommandServiceImpl ..|> UserCommandService : implements
-UserQueryServiceImpl ..|> UserQueryService : implements
-UserCommandFailureDuplicate ..|> UserCommandFailure : implements
-UserCommandService --> Result : returns
-UserCommandService --> UserCommandFailure : returns
-UserCommandServiceImpl --> UserRepository : uses
-UserQueryServiceImpl --> UserRepository : uses
-UserCommandServiceImpl --> User : creates
-UserCommandServiceImpl --> Result : returns
-UserCommandServiceImpl --> UserCommandFailure : returns
-UserQueryService --> User : returns
-UserQueryServiceImpl --> User : returns
-
-' HTTP mapping
-CreateUserCommandFromResourceAssembler ..> CreateUserResource : reads
-CreateUserCommandFromResourceAssembler --> CreateUserCommand : creates
-IamValueObjectFromStringAssembler --> FullName : creates
-IamValueObjectFromStringAssembler --> EmailAddress : creates
-IamValueObjectFromStringAssembler --> Role : creates
-IamValueObjectFromStringAssembler --> MinimarketId : creates
-IamValueObjectFromStringAssembler --> SupplierId : creates
-ResponseEntityFromUserCommandResultAssembler --> Result : maps
-ResponseEntityFromUserCommandResultAssembler --> UserCommandFailure : maps
-ResponseEntityFromUserCommandResultAssembler --> UserResourceFromEntityAssembler : uses
-ResponseEntityFromUserQueryResultAssembler --> UserResourceFromEntityAssembler : uses
-UserResourceFromEntityAssembler ..> User : reads
-UserResourceFromEntityAssembler --> UserResource : creates
-
-' Domain model and persistence mapping
-User --> CreateUserCommand : constructed from
-User --> FullName : contains
-User --> EmailAddress : contains
-User --> Role : contains
-User --> UserStatus : contains
-User --> MinimarketId : contains
-User --> SupplierId : contains
-CreateUserCommand --> FullName : contains
-CreateUserCommand --> EmailAddress : contains
-CreateUserCommand --> Role : contains
-CreateUserCommand --> MinimarketId : contains
-CreateUserCommand --> SupplierId : contains
-GetAllUsersByMinimarketIdQuery --> MinimarketId : contains
-GetUserByEmailQuery --> EmailAddress : contains
-UserRepository --> User : persists
-UserRepository --|> JpaRepository : extends
-UserRepository --> EmailAddress : queries by
-UserRepository --> MinimarketId : queries by
-FullNameAttributeConverter ..> FullName : converts
-EmailAddressAttributeConverter ..> EmailAddress : converts
-MinimarketIdAttributeConverter ..> MinimarketId : converts
-SupplierIdAttributeConverter ..> SupplierId : converts
-Result ..> ResultSuccess : permits
-Result ..> ResultFailure : permits
-
-note bottom
-  The REST controller delegates use cases to application services.
-  Application implementations coordinate repository access and return
-  domain aggregates or typed command failures. REST translators map
-  those outcomes to HTTP resources and ProblemDetail responses.
-  User enforces the unique email persistence constraint.
-  The suppliers, requisition, procurements and conservation bounded contexts
-  currently contain only their domain and persistence mapping; they are added
-  to this diagram as their application and interface layers are completed.
-end note
+' Collaboration between bounded contexts
+procurements.ShipmentOrderAcceptedIntegrationEvent ..> inventory : registers the stock lots
+procurements.ShipmentOrderAcceptedIntegrationEvent ..> communication : ORDER notification
+inventory.StockLotLowStockIntegrationEvent ..> communication : LOW_STOCK notification
+conservation.StorageReadingOutOfRangeIntegrationEvent ..> communication : CONSERVATION notification
+procurements.ShipmentOrderAcceptedIntegrationEvent ..> analytics : activity record
+inventory.StockLotLowStockIntegrationEvent ..> analytics : activity record
+conservation.StorageReadingOutOfRangeIntegrationEvent ..> analytics : activity record
+profiles ..> iam.IamContextFacade : checks the user
+dashboard ..> inventory.InventoryContextFacade
+dashboard ..> procurements.ProcurementsContextFacade
+dashboard ..> requisition.RequisitionContextFacade
+dashboard ..> communication.CommunicationContextFacade
+dashboard ..> profiles.ProfilesContextFacade
+analytics ..> inventory.InventoryContextFacade
+analytics ..> procurements.ProcurementsContextFacade
+analytics ..> conservation.ConservationContextFacade
 
 @enduml
