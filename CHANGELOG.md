@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-15
+
+First release of OrganiK Platform, the RESTful API used by the OrganiK web application 2.0.0.
+
 ### Added
 - **Hexagonal architecture** in every bounded context: pure domain aggregates with `reconstitute(...)`, repository ports, JPA persistence entities, persistence assemblers, converters and repository adapters.
 - **Shared kernel**: `Result` and `ApplicationError`, `AbstractDomainAggregateRoot`, `DomainEventPublisher`, `AuditableAbstractPersistenceEntity`, `GlobalExceptionHandler`, `ProblemDetailFromApplicationErrorAssembler`, `ResponseEntityAssembler`, `LocaleConfiguration` and virtual threads.
@@ -23,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **API documentation** with the Scalar API Reference at `/scalar`.
 - **Deployment**: `Dockerfile`, `.env.example` and `dev`/`prod` profiles.
 - **Tests** for domain models, application services, repository adapters, controllers and the shared kernel.
+- **Default product categories** seeded on start-up (`fruits-vegetables`, `dairy`, `grains`, `beverages`, `bakery`, `frozen`).
+- **Minimarket expiration policy**: the expiration thresholds are shared by every profile of a minimarket and adopted by new profiles.
+- **Updates with PUT**: `PUT /api/v1/stock-lots/{stockLotId}` (location, notes and expiration date), `PUT /api/v1/offered-products/{offeredProductId}` and `PUT /api/v1/profiles/{profileId}` (full name).
+- **Stock lots** keep their location and notes; accepted shipment orders register their lots at `Reception`.
+- **Storage zones, storage readings and notifications** belong to a minimarket; `GET /api/v1/storage-zones` and `GET /api/v1/notifications` require `minimarketId`, and out-of-range readings count in the analytics of their minimarket.
 
 ### Changed
 - Shipment order decisions moved to `POST /api/v1/shipment-orders/{shipmentOrderId}/acceptances` and `/rejections`.
@@ -33,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Catch-up style `*CommandFailure` types and response assemblers, replaced by `ApplicationError` and `ResponseEntityAssembler`.
 - The previous IAM `User` aggregate without credentials; personal data moved to `profiles`.
 
+## [0.1.0] - 2026-10-31
 
 First documented state of the OrganiK Platform: a Spring Boot REST service for
 the OrganiK web application, organized into the `iam`, `suppliers`,
@@ -76,3 +86,6 @@ following Domain-Driven Design.
 ### Changed
 
 - Dependency and build updates in `pom.xml`, including Lombok, SpringDoc, MySQL connector, Jackson, Logback, Tomcat, and `maven-compiler-plugin`.
+
+[Unreleased]: https://github.com/6Bits-Startup/organik-platform/compare/v1.0.0...develop
+[1.0.0]: https://github.com/6Bits-Startup/organik-platform/releases/tag/v1.0.0

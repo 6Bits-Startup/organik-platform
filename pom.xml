@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>5bits.organik</groupId>
 	<artifactId>platform</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>web-application-backend</name>
 	<description>OrganiK Platform is the RESTful API of OrganiK, the web application that helps minimarkets of organic products control their inventory, expiration dates, supply and conservation conditions. Built with Domain-Driven Design, Java 27, Spring Boot 4 and MySQL.</description>
 	<url/>
