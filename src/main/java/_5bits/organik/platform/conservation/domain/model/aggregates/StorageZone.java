@@ -1,75 +1,54 @@
 package _5bits.organik.platform.conservation.domain.model.aggregates;
 
-import _5bits.organik.platform.conservation.domain.model.valueobjects.Humidity;
-import _5bits.organik.platform.conservation.domain.model.valueobjects.HumidityRange;
-import _5bits.organik.platform.conservation.domain.model.valueobjects.StorageCondition;
-import _5bits.organik.platform.conservation.domain.model.valueobjects.Temperature;
-import _5bits.organik.platform.conservation.domain.model.valueobjects.TemperatureRange;
-import _5bits.organik.platform.conservation.domain.model.valueobjects.ZoneName;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import _5bits.organik.platform.conservation.domain.model.commands.CreateStorageZoneCommand;
+import _5bits.organik.platform.conservation.domain.model.valueobjects.*;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
+import lombok.Getter;
 
-@Entity
-@Table(name = "storage_zones")
-public class StorageZone {
+import java.util.Objects;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+/**
+ * Storage zone aggregate root.
+ * <p>
+ * A physical area of a minimarket (cold room, shelf, dry storage) with the temperature and
+ * humidity ranges its products require.
+ * </p>
+ */
+@Getter
+public class StorageZone extends AbstractDomainAggregateRoot<StorageZone> {
     private Long id;
-
-    @Column(name = "name", nullable = false, length = 100)
+    private MinimarketId minimarketId;
     private ZoneName name;
-
-    @Column(name = "storage_condition", nullable = false, length = 30)
-    private StorageCondition condition;
-
-    @Embedded
+    private StorageCondition storageCondition;
     private TemperatureRange temperatureRange;
-
-    @Embedded
     private HumidityRange humidityRange;
 
-    protected StorageZone() {
+    public StorageZone(MinimarketId minimarketId, ZoneName name, StorageCondition storageCondition,
+                       TemperatureRange temperatureRange, HumidityRange humidityRange) {
+        this.minimarketId = Objects.requireNonNull(minimarketId, "minimarketId must not be null");
+        this.name = Objects.requireNonNull(name, "name must not be null");
+        this.storageCondition = Objects.requireNonNull(storageCondition, "storageCondition must not be null");
+        this.temperatureRange = Objects.requireNonNull(temperatureRange, "temperatureRange must not be null");
+        this.humidityRange = Objects.requireNonNull(humidityRange, "humidityRange must not be null");
     }
 
-    public StorageZone(ZoneName name, StorageCondition condition, TemperatureRange temperatureRange, HumidityRange humidityRange) {
-        this.name = name;
-        this.condition = condition;
-        this.temperatureRange = temperatureRange;
-        this.humidityRange = humidityRange;
+    public StorageZone(CreateStorageZoneCommand command) {
+        this(command.minimarketId(), command.name(), command.condition(), command.temperatureRange(), command.humidityRange());
     }
 
+    public static StorageZone reconstitute(Long id, MinimarketId minimarketId, ZoneName name, StorageCondition storageCondition,
+                                           TemperatureRange temperatureRange, HumidityRange humidityRange) {
+        var storageZone = new StorageZone(minimarketId, name, storageCondition, temperatureRange, humidityRange);
+        storageZone.id = id;
+        return storageZone;
+    }
+
+    /**
+     * @param temperature measured temperature
+     * @param humidity measured humidity
+     * @return {@code true} when both values are inside the allowed ranges
+     */
     public boolean isReadingWithinRange(Temperature temperature, Humidity humidity) {
-        return this.temperatureRange.includes(temperature) && this.humidityRange.includes(humidity);
-    }
-
-    public void updateAllowedRanges(TemperatureRange temperatureRange, HumidityRange humidityRange) {
-        this.temperatureRange = temperatureRange;
-        this.humidityRange = humidityRange;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public ZoneName getName() {
-        return name;
-    }
-
-    public StorageCondition getCondition() {
-        return condition;
-    }
-
-    public TemperatureRange getTemperatureRange() {
-        return temperatureRange;
-    }
-
-    public HumidityRange getHumidityRange() {
-        return humidityRange;
+        return temperatureRange.includes(temperature) && humidityRange.includes(humidity);
     }
 }

@@ -4,17 +4,16 @@ import _5bits.organik.platform.suppliers.application.queryservices.OfferedProduc
 import _5bits.organik.platform.suppliers.domain.model.aggregates.OfferedProduct;
 import _5bits.organik.platform.suppliers.domain.model.queries.GetAllOfferedProductsBySupplierIdQuery;
 import _5bits.organik.platform.suppliers.domain.model.queries.GetOfferedProductByIdQuery;
-import _5bits.organik.platform.suppliers.infrastructure.persistence.jpa.OfferedProductRepository;
-import lombok.extern.slf4j.Slf4j;
+import _5bits.organik.platform.suppliers.domain.repositories.OfferedProductRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
+/**
+ * Application service that handles OfferedProduct queries.
+ */
 @Service
-@Transactional(readOnly = true)
 public class OfferedProductQueryServiceImpl implements OfferedProductQueryService {
     private final OfferedProductRepository offeredProductRepository;
 
@@ -23,18 +22,12 @@ public class OfferedProductQueryServiceImpl implements OfferedProductQueryServic
     }
 
     @Override
-    public List<OfferedProduct> handle(GetAllOfferedProductsBySupplierIdQuery query) {
-        log.debug("Querying all offered products for supplierId={}", query.supplierId().value());
-        var results = offeredProductRepository.findAllBySupplierId(query.supplierId());
-        log.debug("Found {} offered product(s) for supplierId={}", results.size(), query.supplierId().value());
-        return results;
+    public Optional<OfferedProduct> handle(GetOfferedProductByIdQuery query) {
+        return offeredProductRepository.findById(query.id());
     }
 
     @Override
-    public Optional<OfferedProduct> handle(GetOfferedProductByIdQuery query) {
-        log.debug("Querying offered product by id={}", query.id());
-        var result = offeredProductRepository.findById(query.id());
-        if (result.isEmpty()) log.debug("No offered product found for id={}", query.id());
-        return result;
+    public List<OfferedProduct> handle(GetAllOfferedProductsBySupplierIdQuery query) {
+        return offeredProductRepository.findAllBySupplierId(query.supplierId());
     }
 }

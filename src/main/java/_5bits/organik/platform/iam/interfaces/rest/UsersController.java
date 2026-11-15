@@ -2,169 +2,155 @@ package _5bits.organik.platform.iam.interfaces.rest;
 
 import _5bits.organik.platform.iam.application.commandservices.UserCommandService;
 import _5bits.organik.platform.iam.application.queryservices.UserQueryService;
-import _5bits.organik.platform.iam.domain.model.aggregates.User;
-import _5bits.organik.platform.iam.domain.model.queries.GetAllUsersByMinimarketIdQuery;
-import _5bits.organik.platform.iam.domain.model.queries.GetUserByEmailQuery;
+import _5bits.organik.platform.iam.domain.model.queries.GetAllUsersQuery;
 import _5bits.organik.platform.iam.domain.model.queries.GetUserByIdQuery;
-import _5bits.organik.platform.iam.interfaces.rest.resources.CreateUserResource;
+import _5bits.organik.platform.iam.interfaces.rest.resources.SignUpResource;
 import _5bits.organik.platform.iam.interfaces.rest.resources.UserResource;
-import _5bits.organik.platform.iam.interfaces.rest.transform.CreateUserCommandFromResourceAssembler;
-import _5bits.organik.platform.iam.interfaces.rest.transform.IamValueObjectFromStringAssembler;
-import _5bits.organik.platform.iam.interfaces.rest.transform.ResponseEntityFromUserCommandResultAssembler;
-import _5bits.organik.platform.iam.interfaces.rest.transform.ResponseEntityFromUserQueryResultAssembler;
+import _5bits.organik.platform.iam.interfaces.rest.transform.SignUpCommandFromResourceAssembler;
+import _5bits.organik.platform.iam.interfaces.rest.transform.UserResourceFromEntityAssembler;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Optional;
-import java.util.regex.Pattern;
+import java.util.List;
 
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
-
-@Slf4j
+/**
+ * REST controller that exposes IAM user resources.
+ */
 @RestController
-@RequestMapping(value = "/api/v1/users", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Users", description = "Endpoints for users")
+@RequestMapping(value = "/api/v1/users", produces = MediaType.APPLICATION_JSON_VALUE)
+@Tag(name = "Users", description = "User management endpoints")
 public class UsersController {
-    private static final int MAX_QUERY_PARAM_LENGTH = 256;
-    private static final Pattern ID_QUERY_PARAM_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
-    private static final Pattern EMAIL_QUERY_PARAM_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
-
-    private final UserCommandService userCommandService;
     private final UserQueryService userQueryService;
-    private final MessageSource messageSource;
+    private final UserCommandService userCommandService;
 
-    public UsersController(UserCommandService userCommandService, UserQueryService userQueryService, MessageSource messageSource) {
-        this.userCommandService = userCommandService;
+    public UsersController(UserQueryService userQueryService, UserCommandService userCommandService) {
         this.userQueryService = userQueryService;
-        this.messageSource = messageSource;
+        this.userCommandService = userCommandService;
     }
 
-    @Operation(
-            summary = "Create a user",
-            description = "Creates a user with the provided full name, email, role and business identifiers",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "User creation request",
-                    content = @Content(schema = @Schema(implementation = CreateUserResource.class))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "User created",
-                    content = @Content(schema = @Schema(implementation = UserResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "409", description = "Conflict - user already exists for the given email",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
+    /**
+     * Handles user creation (sign-up) request.
+     *
+     * @param signUpResource the sign-up request body with username, password, and roles.
+     * @return the created user resource with assigned roles.
+     */
     @PostMapping
-    public ResponseEntity<?> createUser(@Valid @RequestBody CreateUserResource resource) {
-        log.debug("POST /api/v1/users – email={}, role={}", resource.email(), resource.role());
-        var user = userCommandService
-                .handle(CreateUserCommandFromResourceAssembler.toCommandFromResource(resource));
-        var response = ResponseEntityFromUserCommandResultAssembler.toResponseEntityFromResult(user, messageSource);
-        log.debug("POST /api/v1/users – response status={}", response.getStatusCode());
-        return response;
-    }
-
     @Operation(
-            summary = "Get a user by ID",
-            description = "Gets a user by the provided ID")
+        summary = "Create user (Sign-up)",
+        description = "Creates a new user account with provided credentials and assigns specified roles."
+    )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "User found",
-                    content = @Content(schema = @Schema(implementation = UserResource.class))),
-            @ApiResponse(responseCode = "404", description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(
+                responseCode = "201",
+                description = "User created successfully",
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = UserResource.class)
+                )
+            ),
+            @ApiResponse(
+                responseCode = "400",
+                description = "Invalid input data or username already exists",
+                content = @Content(mediaType = "application/json")
+            ),
+            @ApiResponse(
+                responseCode = "409",
+                description = "Conflict - username already taken",
+                content = @Content(mediaType = "application/json")
+            )
     })
-    @GetMapping("{id}")
-    public ResponseEntity<?> getUserById(@PathVariable Long id) {
-        log.debug("GET /api/v1/users/{}", id);
-        Optional<User> user = userQueryService.handle(new GetUserByIdQuery(id));
-        if (user.isEmpty()) {
-            log.debug("User not found for id={}", id);
-            return ResponseEntityFromUserQueryResultAssembler.notFound(
-                    messageSource,
-                    "user.error.notFoundById",
-                    id);
-        }
-        return ResponseEntityFromUserQueryResultAssembler.toResponseEntityFromUser(user.orElseThrow());
+    public ResponseEntity<?> createUser(@RequestBody SignUpResource signUpResource) {
+        var signUpCommand = SignUpCommandFromResourceAssembler.toCommandFromResource(signUpResource);
+        var result = userCommandService.handle(signUpCommand);
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                UserResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
     }
 
-    private ResponseEntity<?> getAllUsersByMinimarketId(String minimarketId) {
-        var getAllUsersByMinimarketIdQuery = new GetAllUsersByMinimarketIdQuery(
-                IamValueObjectFromStringAssembler.toMinimarketIdFromString(minimarketId));
-        var users = userQueryService.handle(getAllUsersByMinimarketIdQuery);
-        return ResponseEntityFromUserQueryResultAssembler.toResponseEntityFromList(users);
-    }
-
-    private ResponseEntity<?> getUserByEmail(String email) {
-        var getUserByEmailQuery = new GetUserByEmailQuery(
-                IamValueObjectFromStringAssembler.toEmailAddressFromString(email));
-        var user = userQueryService.handle(getUserByEmailQuery);
-        if (user.isEmpty()) {
-            log.debug("User not found for email={}", email);
-            return ResponseEntityFromUserQueryResultAssembler.notFound(
-                    messageSource,
-                    "user.error.notFoundByEmail");
-        }
-        return ResponseEntityFromUserQueryResultAssembler.toResponseEntityFromUser(user.orElseThrow());
-    }
-
-    @Operation(
-            summary = "Get users with parameters (Minimarket ID or Email)",
-            description = "Gets the users of a minimarket, or a single user by email")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "User(s) found",
-                    content = @Content(schema = @Schema(oneOf = {UserResource.class, UserResource[].class}))),
-            @ApiResponse(responseCode = "404", description = "User not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
+    /**
+     * Retrieves all users.
+     *
+     * @return list of user resources
+     * @see UserResource
+     */
     @GetMapping
-    public ResponseEntity<?> getUsersWithParameters(
-            @Parameter(name = "minimarketId", description = "Minimarket ID",
-                    schema = @Schema(maxLength = 256, pattern = "^[a-zA-Z0-9_-]+$"))
-            @RequestParam(name = "minimarketId", required = false) String minimarketId,
-            @Parameter(name = "email", description = "Email address",
-                    schema = @Schema(maxLength = 256, pattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$"))
-            @RequestParam(name = "email", required = false) String email) {
-        if (minimarketId != null && isInvalidQueryParam(minimarketId, ID_QUERY_PARAM_PATTERN)) {
-            log.warn("Rejected invalid query param minimarketId");
-            return ResponseEntityFromUserQueryResultAssembler.badRequest(
-                    messageSource,
-                    "user.error.minimarketId.invalid");
-        }
-        if (email != null && isInvalidQueryParam(email, EMAIL_QUERY_PARAM_PATTERN)) {
-            log.warn("Rejected invalid query param email");
-            return ResponseEntityFromUserQueryResultAssembler.badRequest(
-                    messageSource,
-                    "user.error.email.invalid");
-        }
-        if (email != null && !email.isBlank()) {
-            log.debug("GET /api/v1/users?email={}", email);
-            return getUserByEmail(email);
-        } else if (minimarketId != null && !minimarketId.isBlank()) {
-            log.debug("GET /api/v1/users?minimarketId={}", minimarketId);
-            return getAllUsersByMinimarketId(minimarketId);
-        } else {
-            log.warn("GET /api/v1/users – missing or blank required parameter: minimarketId or email");
-            return ResponseEntityFromUserQueryResultAssembler.badRequest(
-                    messageSource,
-                    "user.error.query.missing");
-        }
+    @Operation(
+        summary = "Get all users",
+        description = "Retrieves a list of all users in the system with their roles.",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                responseCode = "200",
+                description = "Users retrieved successfully",
+                content = @Content(schema = @Schema(implementation = UserResource.class))
+            ),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required or invalid"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Insufficient permissions")
+    })
+    public ResponseEntity<List<UserResource>> getAllUsers() {
+        var getAllUsersQuery = new GetAllUsersQuery();
+        var users = userQueryService.handle(getAllUsersQuery);
+        var userResources = users.stream().map(UserResourceFromEntityAssembler::toResourceFromEntity).toList();
+        return ResponseEntity.ok(userResources);
     }
 
-    private boolean isInvalidQueryParam(String value, Pattern pattern) {
-        return value.isBlank() || value.length() > MAX_QUERY_PARAM_LENGTH || !pattern.matcher(value).matches();
+    /**
+     * Retrieves a user by identifier.
+     *
+     * @param userId user identifier
+     * @return user resource when found
+     * @see UserResource
+     */
+    @GetMapping(value = "/{userId}")
+    @Operation(
+        summary = "Get user by ID",
+        description = "Retrieves a specific user's information by unique identifier.",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                responseCode = "200",
+                description = "User retrieved successfully",
+                content = @Content(schema = @Schema(implementation = UserResource.class))
+            ),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required or invalid"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Insufficient permissions"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserResource> getUserById(
+            @PathVariable
+            @Parameter(
+                description = "Unique user identifier",
+                example = "1",
+                required = true
+            )
+            Long userId
+    ) {
+        var getUserByIdQuery = new GetUserByIdQuery(userId);
+        var user = userQueryService.handle(getUserByIdQuery);
+        if (user.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(user.get());
+        return ResponseEntity.ok(userResource);
     }
-
 }

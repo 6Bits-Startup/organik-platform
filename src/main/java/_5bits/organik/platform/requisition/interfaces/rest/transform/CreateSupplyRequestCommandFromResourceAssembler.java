@@ -1,18 +1,21 @@
 package _5bits.organik.platform.requisition.interfaces.rest.transform;
 
 import _5bits.organik.platform.requisition.domain.model.commands.CreateSupplyRequestCommand;
-import _5bits.organik.platform.requisition.domain.model.valueobjects.Quantity;
 import _5bits.organik.platform.requisition.interfaces.rest.resources.CreateSupplyRequestResource;
+import _5bits.organik.platform.requisition.domain.model.valueobjects.*;
 
+/**
+ * Assembler that converts a {@link CreateSupplyRequestResource} into a {@link CreateSupplyRequestCommand}.
+ */
 public class CreateSupplyRequestCommandFromResourceAssembler {
     public static CreateSupplyRequestCommand toCommandFromResource(CreateSupplyRequestResource resource) {
         return new CreateSupplyRequestCommand(
-                RequisitionValueObjectFromStringAssembler.toProductIdFromString(resource.productId()),
-                RequisitionValueObjectFromStringAssembler.toSupplierIdFromString(resource.supplierId()),
-                RequisitionValueObjectFromStringAssembler.toMinimarketIdFromString(resource.minimarketId()),
+                new ProductId(resource.productId()),
+                new SupplierId(resource.supplierId()),
+                new MinimarketId(resource.minimarketId()),
                 new Quantity(resource.quantity()),
-                RequisitionValueObjectFromStringAssembler.toRequestReasonFromString(resource.reason()),
+                new RequestReason(resource.reason()),
                 resource.requiredDate(),
-                RequisitionValueObjectFromStringAssembler.toRequestPriorityFromString(resource.priority()));
+                RequestPriority.valueOf(resource.priority()));
     }
 }

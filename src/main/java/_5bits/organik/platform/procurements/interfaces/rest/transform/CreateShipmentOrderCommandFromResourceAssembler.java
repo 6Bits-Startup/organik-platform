@@ -1,16 +1,13 @@
 package _5bits.organik.platform.procurements.interfaces.rest.transform;
 
 import _5bits.organik.platform.procurements.domain.model.commands.CreateShipmentOrderCommand;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.LotCode;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.MinimarketId;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.ProductId;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.Quantity;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.SupplierId;
+import _5bits.organik.platform.procurements.domain.model.valueobjects.*;
 import _5bits.organik.platform.procurements.interfaces.rest.resources.CreateShipmentOrderResource;
 
-public final class CreateShipmentOrderCommandFromResourceAssembler {
-    private CreateShipmentOrderCommandFromResourceAssembler() {}
-
+/**
+ * Assembler that converts a {@link CreateShipmentOrderResource} into a {@link CreateShipmentOrderCommand}.
+ */
+public class CreateShipmentOrderCommandFromResourceAssembler {
     public static CreateShipmentOrderCommand toCommandFromResource(CreateShipmentOrderResource resource) {
         var lines = resource.lines().stream()
                 .map(line -> new CreateShipmentOrderCommand.Line(

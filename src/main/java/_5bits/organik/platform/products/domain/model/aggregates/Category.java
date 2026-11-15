@@ -3,48 +3,35 @@ package _5bits.organik.platform.products.domain.model.aggregates;
 import _5bits.organik.platform.products.domain.model.commands.CreateCategoryCommand;
 import _5bits.organik.platform.products.domain.model.valueobjects.CategoryName;
 import _5bits.organik.platform.products.domain.model.valueobjects.CategoryTone;
-import _5bits.organik.platform.products.infrastructure.persistence.jpa.converters.CategoryNameAttributeConverter;
-import jakarta.persistence.*;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
+import java.util.Objects;
 
+/**
+ * Category aggregate root.
+ * <p>
+ * Groups the organic products of the catalog (fruits and vegetables, dairy, grains, etc.).
+ * </p>
+ */
 @Getter
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "name" }, name = Category.NAME_UNIQUE_CONSTRAINT)
-})
-public class Category {
-    public static final String NAME_UNIQUE_CONSTRAINT = "uk_category_name";
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class Category extends AbstractDomainAggregateRoot<Category> {
     private Long id;
-
-    @Column(nullable = false, length = 128)
-    @Convert(converter = CategoryNameAttributeConverter.class)
     private CategoryName name;
-
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
     private CategoryTone tone;
 
-    @Column(nullable = false, updatable = false)
-    @CreatedDate
-    private Instant createdAt;
-
-    @Column(nullable = false)
-    @LastModifiedDate
-    private Instant updatedAt;
-
-    protected Category() {}
+    public Category(CategoryName name, CategoryTone tone) {
+        this.name = Objects.requireNonNull(name, "name must not be null");
+        this.tone = Objects.requireNonNull(tone, "tone must not be null");
+    }
 
     public Category(CreateCategoryCommand command) {
-        this.name = command.name();
-        this.tone = command.tone();
+        this(command.name(), command.tone());
+    }
+
+    public static Category reconstitute(Long id, CategoryName name, CategoryTone tone) {
+        var category = new Category(name, tone);
+        category.id = id;
+        return category;
     }
 }

@@ -2,20 +2,24 @@ package _5bits.organik.platform.products.interfaces.rest.resources;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Response resource representing a product")
+/**
+ * Response resource representing a product.
+ */
+@Schema(name = "ProductResponse", description = "Product information response")
 public record ProductResource(
-        @Schema(description = "Persistent identifier", example = "1")
-        Long id,
-        @Schema(description = "Stock keeping unit of the product", example = "ORG-01")
-        String sku,
-        @Schema(description = "Name of the product", example = "Organic apple")
-        String name,
-        @Schema(description = "Identifier of the category", example = "1")
-        Long categoryId,
-        @Schema(description = "Supplier that usually provides the product", example = "sup-bioandes")
-        String supplierId,
-        @Schema(description = "Unit in which the stock is counted", example = "KG")
-        String unit,
-        @Schema(description = "Stock under which the product needs to be replenished", example = "10")
-        Integer minimumStock) {
+    @Schema(description = "Product unique identifier", example = "1")
+    Long id,
+    @Schema(description = "Stock keeping unit", example = "ORG-01")
+    String sku,
+    @Schema(description = "Product name", example = "Organic yogurt")
+    String name,
+    @Schema(description = "Category of the product", example = "1")
+    Long categoryId,
+    @Schema(description = "Usual supplier of the product", example = "sup-bioandes")
+    String supplierId,
+    @Schema(description = "Measurement unit", example = "UNIT")
+    String unit,
+    @Schema(description = "Minimum stock", example = "20")
+    Integer minimumStock
+) {
 }

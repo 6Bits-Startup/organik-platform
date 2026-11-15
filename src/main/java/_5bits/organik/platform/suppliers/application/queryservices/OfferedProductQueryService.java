@@ -7,7 +7,24 @@ import _5bits.organik.platform.suppliers.domain.model.queries.GetOfferedProductB
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Application service contract for OfferedProduct query operations.
+ */
 public interface OfferedProductQueryService {
-    List<OfferedProduct> handle(GetAllOfferedProductsBySupplierIdQuery query);
+
+    /**
+     * Handles the {@link GetOfferedProductByIdQuery} query.
+     *
+     * @param query query object
+     * @return the query result
+     */
     Optional<OfferedProduct> handle(GetOfferedProductByIdQuery query);
+
+    /**
+     * Handles the {@link GetAllOfferedProductsBySupplierIdQuery} query.
+     *
+     * @param query query object
+     * @return the query result
+     */
+    List<OfferedProduct> handle(GetAllOfferedProductsBySupplierIdQuery query);
 }

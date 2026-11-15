@@ -2,12 +2,15 @@ package _5bits.organik.platform.inventory.domain.model.commands;
 
 import _5bits.organik.platform.inventory.domain.model.valueobjects.ExpirationDate;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.LotCode;
+import _5bits.organik.platform.inventory.domain.model.valueobjects.LotLocation;
+import _5bits.organik.platform.inventory.domain.model.valueobjects.LotNotes;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.ProductId;
 import _5bits.organik.platform.inventory.domain.model.valueobjects.Quantity;
 
 public record CreateStockLotCommand(MinimarketId minimarketId, ProductId productId, LotCode lotCode,
-                                    Quantity quantity, Quantity minimumStock, ExpirationDate expirationDate) {
+                                    Quantity quantity, Quantity minimumStock, ExpirationDate expirationDate,
+                                    LotLocation location, LotNotes notes) {
     public CreateStockLotCommand {
         if (minimarketId == null) {
             throw new IllegalArgumentException("MinimarketId cannot be null");
@@ -26,6 +29,12 @@ public record CreateStockLotCommand(MinimarketId minimarketId, ProductId product
         }
         if (expirationDate == null) {
             throw new IllegalArgumentException("ExpirationDate cannot be null");
+        }
+        if (location == null) {
+            throw new IllegalArgumentException("LotLocation cannot be null");
+        }
+        if (notes == null) {
+            throw new IllegalArgumentException("LotNotes cannot be null");
         }
     }
 }

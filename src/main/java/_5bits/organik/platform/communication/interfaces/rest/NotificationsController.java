@@ -4,138 +4,128 @@ import _5bits.organik.platform.communication.application.commandservices.Notific
 import _5bits.organik.platform.communication.application.queryservices.NotificationQueryService;
 import _5bits.organik.platform.communication.domain.model.aggregates.Notification;
 import _5bits.organik.platform.communication.domain.model.commands.MarkNotificationAsReadCommand;
-import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsQuery;
+import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsByMinimarketIdQuery;
 import _5bits.organik.platform.communication.domain.model.queries.GetNotificationByIdQuery;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.interfaces.rest.resources.CreateNotificationResource;
 import _5bits.organik.platform.communication.interfaces.rest.resources.NotificationResource;
 import _5bits.organik.platform.communication.interfaces.rest.transform.CreateNotificationCommandFromResourceAssembler;
-import _5bits.organik.platform.communication.interfaces.rest.transform.ResponseEntityFromNotificationCommandResultAssembler;
-import _5bits.organik.platform.communication.interfaces.rest.transform.ResponseEntityFromNotificationQueryResultAssembler;
+import _5bits.organik.platform.communication.interfaces.rest.transform.NotificationResourceFromEntityAssembler;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
+import _5bits.organik.platform.shared.application.result.Result;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ProblemDetailFromApplicationErrorAssembler;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
-
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-@Slf4j
+/**
+ * REST controller that exposes notification endpoints.
+ */
 @RestController
 @RequestMapping(value = "/api/v1/notifications", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Notifications", description = "Endpoints for notifications")
+@Tag(name = "Notifications", description = "Notification management endpoints")
 public class NotificationsController {
     private final NotificationCommandService notificationCommandService;
     private final NotificationQueryService notificationQueryService;
-    private final MessageSource messageSource;
 
-    public NotificationsController(
-            NotificationCommandService notificationCommandService,
-            NotificationQueryService notificationQueryService,
-            MessageSource messageSource) {
+    public NotificationsController(NotificationCommandService notificationCommandService, NotificationQueryService notificationQueryService) {
         this.notificationCommandService = notificationCommandService;
         this.notificationQueryService = notificationQueryService;
-        this.messageSource = messageSource;
     }
 
-    @Operation(
-            summary = "Create a notification",
-            description = "Creates a notification with the provided type, severity and title",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Notification creation request",
-                    content = @Content(schema = @Schema(implementation = CreateNotificationResource.class))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Notification created",
-                    content = @Content(schema = @Schema(implementation = NotificationResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @PostMapping
-    public ResponseEntity<?> createNotification(@Valid @RequestBody CreateNotificationResource resource) {
-        log.debug("POST /api/v1/notifications – type={}, severity={}", resource.type(), resource.severity());
-        var result = notificationCommandService
-                .handle(CreateNotificationCommandFromResourceAssembler.toCommandFromResource(resource));
-        var response = ResponseEntityFromNotificationCommandResultAssembler
-                .toResponseEntityFromResult(result, messageSource, HttpStatus.CREATED);
-        log.debug("POST /api/v1/notifications – response status={}", response.getStatusCode());
-        return response;
-    }
-
-    @Operation(
-            summary = "Mark a notification as read",
-            description = "Marks an existing notification as read")
+    @Operation(summary = "Create a notification", description = "Creates a new unread notification for the minimarket staff.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Notification marked as read",
+            @ApiResponse(responseCode = "201", description = "Notification created successfully",
                     content = @Content(schema = @Schema(implementation = NotificationResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Notification not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required")
     })
-    @PostMapping("{id}/mark-as-read")
-    public ResponseEntity<?> markNotificationAsRead(@PathVariable Long id) {
-        log.debug("POST /api/v1/notifications/{}/mark-as-read", id);
-        if (id == null || id <= 0) {
-            return ResponseEntityFromNotificationQueryResultAssembler.badRequest(
-                    messageSource,
-                    "notification.error.id.invalid");
-        }
-        var result = notificationCommandService.handle(new MarkNotificationAsReadCommand(id));
-        return ResponseEntityFromNotificationCommandResultAssembler
-                .toResponseEntityFromResult(result, messageSource, HttpStatus.OK);
+    public ResponseEntity<?> createNotification(@Valid @RequestBody CreateNotificationResource resource) {
+        var createNotificationCommand = CreateNotificationCommandFromResourceAssembler.toCommandFromResource(resource);
+        var result = notificationCommandService.handle(createNotificationCommand)
+                .flatMap(notificationId -> notificationQueryService.handle(new GetNotificationByIdQuery(notificationId))
+                        .<Result<Notification, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("Notification", notificationId.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                NotificationResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
     }
 
-    @Operation(
-            summary = "Get a notification by ID",
-            description = "Gets a notification by the provided ID")
+    @GetMapping("/{notificationId}")
+    @Operation(summary = "Get notification by ID", description = "Retrieves a specific notification by its unique identifier.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Notification found",
                     content = @Content(schema = @Schema(implementation = NotificationResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Notification not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(responseCode = "404", description = "Notification not found")
     })
-    @GetMapping("{id}")
-    public ResponseEntity<?> getNotificationById(@PathVariable Long id) {
-        log.debug("GET /api/v1/notifications/{}", id);
-        if (id == null || id <= 0) {
-            return ResponseEntityFromNotificationQueryResultAssembler.badRequest(
-                    messageSource,
-                    "notification.error.id.invalid");
-        }
-        Optional<Notification> notification = notificationQueryService.handle(new GetNotificationByIdQuery(id));
+    public ResponseEntity<?> getNotificationById(
+            @PathVariable
+            @Parameter(description = "Notification unique identifier", example = "1", required = true)
+            Long notificationId
+    ) {
+        var notification = notificationQueryService.handle(new GetNotificationByIdQuery(notificationId));
         if (notification.isEmpty()) {
-            log.debug("Notification not found for id={}", id);
-            return ResponseEntityFromNotificationQueryResultAssembler.notFound(
-                    messageSource,
-                    "notification.error.notFoundById",
-                    id);
+            var error = ApplicationError.notFound("Notification", notificationId.toString());
+            return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
         }
-        return ResponseEntityFromNotificationQueryResultAssembler.toResponseEntityFromNotification(notification.orElseThrow());
+        return ResponseEntity.ok(NotificationResourceFromEntityAssembler.toResourceFromEntity(notification.get()));
     }
 
-    @Operation(
-            summary = "Get all notifications",
-            description = "Gets every registered notification")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Notifications found",
-                    content = @Content(schema = @Schema(implementation = NotificationResource[].class)))
-    })
     @GetMapping
-    public ResponseEntity<?> getAllNotifications() {
-        log.debug("GET /api/v1/notifications");
-        var notifications = notificationQueryService.handle(new GetAllNotificationsQuery());
-        return ResponseEntityFromNotificationQueryResultAssembler.toResponseEntityFromList(notifications);
+    @Operation(summary = "Get notifications", description = "Retrieves the notifications of a minimarket filtered by minimarketId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Notifications retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = NotificationResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
+    })
+    public ResponseEntity<?> getNotifications(
+            @RequestParam(required = false)
+            @Parameter(description = "Minimarket identifier", example = "mm-vida-verde")
+            String minimarketId
+    ) {
+        if (minimarketId != null) {
+            var notifications = notificationQueryService.handle(new GetAllNotificationsByMinimarketIdQuery(new MinimarketId(minimarketId)));
+            return ResponseEntity.ok(notifications.stream().map(NotificationResourceFromEntityAssembler::toResourceFromEntity).toList());
+        }
+        var error = ApplicationError.validationError("minimarketId", "Query parameter minimarketId is required");
+        return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
+    }
+
+    @PostMapping("/{notificationId}/readings")
+    @Operation(summary = "Mark notification as read", description = "Marks an unread notification as read.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Notification marked as read",
+                    content = @Content(schema = @Schema(implementation = NotificationResource.class))),
+            @ApiResponse(responseCode = "404", description = "Notification not found"),
+            @ApiResponse(responseCode = "409", description = "Conflict - notification already read")
+    })
+    public ResponseEntity<?> markNotificationAsRead(
+            @PathVariable
+            @Parameter(description = "Notification unique identifier", example = "1", required = true)
+            Long notificationId
+    ) {
+        var result = notificationCommandService.handle(new MarkNotificationAsReadCommand(notificationId))
+                .flatMap(id -> notificationQueryService.handle(new GetNotificationByIdQuery(id))
+                        .<Result<Notification, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("Notification", id.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                NotificationResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.OK
+        );
     }
 }

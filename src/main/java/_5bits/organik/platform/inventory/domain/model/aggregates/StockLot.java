@@ -1,81 +1,108 @@
 package _5bits.organik.platform.inventory.domain.model.aggregates;
 
 import _5bits.organik.platform.inventory.domain.model.commands.CreateStockLotCommand;
-import _5bits.organik.platform.inventory.domain.model.valueobjects.ExpirationDate;
-import _5bits.organik.platform.inventory.domain.model.valueobjects.LotCode;
-import _5bits.organik.platform.inventory.domain.model.valueobjects.MinimarketId;
-import _5bits.organik.platform.inventory.domain.model.valueobjects.ProductId;
-import _5bits.organik.platform.inventory.domain.model.valueobjects.Quantity;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.ExpirationDateAttributeConverter;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.LotCodeAttributeConverter;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.MinimarketIdAttributeConverter;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.ProductIdAttributeConverter;
-import _5bits.organik.platform.inventory.infrastructure.persistence.jpa.converters.QuantityAttributeConverter;
-import jakarta.persistence.*;
+import _5bits.organik.platform.inventory.domain.model.events.StockLotLowStockDetectedEvent;
+import _5bits.organik.platform.inventory.domain.model.valueobjects.*;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
+import java.util.Objects;
 
+/**
+ * Stock lot aggregate root.
+ * <p>
+ * Represents a lot of a product received by a minimarket, with its quantity, minimum stock and expiration date.
+ * </p>
+ */
 @Getter
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "minimarket_id", "lot_code" }, name = StockLot.LOT_CODE_UNIQUE_CONSTRAINT)
-})
-public class StockLot {
-    public static final String LOT_CODE_UNIQUE_CONSTRAINT = "uk_minimarket_lot_code";
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class StockLot extends AbstractDomainAggregateRoot<StockLot> {
     private Long id;
-
-    @Column(nullable = false)
-    @Convert(converter = MinimarketIdAttributeConverter.class)
     private MinimarketId minimarketId;
-
-    @Column(nullable = false)
-    @Convert(converter = ProductIdAttributeConverter.class)
     private ProductId productId;
-
-    @Column(nullable = false, length = 32)
-    @Convert(converter = LotCodeAttributeConverter.class)
     private LotCode lotCode;
-
-    @Column(nullable = false)
-    @Convert(converter = QuantityAttributeConverter.class)
     private Quantity quantity;
-
-    @Column(nullable = false)
-    @Convert(converter = QuantityAttributeConverter.class)
     private Quantity minimumStock;
-
-    @Column(nullable = false)
-    @Convert(converter = ExpirationDateAttributeConverter.class)
     private ExpirationDate expirationDate;
+    private LotLocation location;
+    private LotNotes notes;
 
-    @Column(nullable = false, updatable = false)
-    @CreatedDate
-    private Instant createdAt;
-
-    @Column(nullable = false)
-    @LastModifiedDate
-    private Instant updatedAt;
-
-    protected StockLot() {}
+    public StockLot(MinimarketId minimarketId, ProductId productId, LotCode lotCode, Quantity quantity,
+                    Quantity minimumStock, ExpirationDate expirationDate, LotLocation location, LotNotes notes) {
+        this.minimarketId = Objects.requireNonNull(minimarketId, "minimarketId must not be null");
+        this.productId = Objects.requireNonNull(productId, "productId must not be null");
+        this.lotCode = Objects.requireNonNull(lotCode, "lotCode must not be null");
+        this.quantity = Objects.requireNonNull(quantity, "quantity must not be null");
+        this.minimumStock = Objects.requireNonNull(minimumStock, "minimumStock must not be null");
+        this.expirationDate = Objects.requireNonNull(expirationDate, "expirationDate must not be null");
+        this.location = Objects.requireNonNull(location, "location must not be null");
+        this.notes = Objects.requireNonNull(notes, "notes must not be null");
+    }
 
     public StockLot(CreateStockLotCommand command) {
-        this.minimarketId = command.minimarketId();
-        this.productId = command.productId();
-        this.lotCode = command.lotCode();
-        this.quantity = command.quantity();
-        this.minimumStock = command.minimumStock();
-        this.expirationDate = command.expirationDate();
+        this(command.minimarketId(), command.productId(), command.lotCode(),
+                command.quantity(), command.minimumStock(), command.expirationDate(), command.location(), command.notes());
+    }
+
+    public static StockLot reconstitute(Long id, MinimarketId minimarketId, ProductId productId, LotCode lotCode,
+                                        Quantity quantity, Quantity minimumStock, ExpirationDate expirationDate,
+                                        LotLocation location, LotNotes notes) {
+        var stockLot = new StockLot(minimarketId, productId, lotCode, quantity, minimumStock, expirationDate, location, notes);
+        stockLot.id = id;
+        return stockLot;
+    }
+
+    /**
+     * @return {@code true} when the quantity is at or below the minimum stock
+     */
+    /**
+     * Updates the information of the lot that does not change its stock.
+     * The quantity only changes through inventory movements.
+     *
+     * @param location new location of the lot
+     * @param notes new notes of the lot
+     * @param expirationDate new expiration date of the lot
+     * @return the updated stock lot
+     */
+    public StockLot updateInformation(LotLocation location, LotNotes notes, ExpirationDate expirationDate) {
+        this.location = Objects.requireNonNull(location, "location must not be null");
+        this.notes = Objects.requireNonNull(notes, "notes must not be null");
+        this.expirationDate = Objects.requireNonNull(expirationDate, "expirationDate must not be null");
+        return this;
     }
 
     public boolean isLowStock() {
         return quantity.isLessThanOrEqualTo(minimumStock);
+    }
+
+    /**
+     * Checks whether a movement can be applied without leaving a negative stock.
+     *
+     * @param type movement type
+     * @param movementQuantity quantity of the movement
+     * @return {@code true} when the movement can be applied
+     */
+    public boolean canApplyMovement(MovementType type, Quantity movementQuantity) {
+        return !type.decreasesStock() || movementQuantity.isLessThanOrEqualTo(quantity);
+    }
+
+    /**
+     * Applies an inventory movement to the lot and raises a low stock event when the lot reaches its minimum stock.
+     *
+     * @param type movement type
+     * @param movementQuantity quantity of the movement
+     */
+    public void applyMovement(MovementType type, Quantity movementQuantity) {
+        if (!canApplyMovement(type, movementQuantity)) {
+            throw new IllegalArgumentException("Insufficient stock in lot %s".formatted(lotCode.value()));
+        }
+        this.quantity = switch (type) {
+            case ENTRY -> quantity.plus(movementQuantity);
+            case EXIT, WASTE -> quantity.minus(movementQuantity);
+            case ADJUSTMENT -> movementQuantity;
+        };
+        if (isLowStock()) {
+            registerDomainEvent(new StockLotLowStockDetectedEvent(
+                    id, minimarketId.value(), productId.value(), lotCode.value(), quantity.value(), minimumStock.value()));
+        }
     }
 }

@@ -1,22 +1,23 @@
 package _5bits.organik.platform.products.application.internal.commandservices;
 
-import _5bits.organik.platform.products.application.commandservices.CategoryCommandFailure;
 import _5bits.organik.platform.products.application.commandservices.CategoryCommandService;
 import _5bits.organik.platform.products.domain.model.aggregates.Category;
 import _5bits.organik.platform.products.domain.model.commands.CreateCategoryCommand;
-import _5bits.organik.platform.products.infrastructure.persistence.jpa.CategoryRepository;
+import _5bits.organik.platform.products.domain.model.commands.SeedCategoriesCommand;
+import _5bits.organik.platform.products.domain.model.valueobjects.CategoryName;
+import _5bits.organik.platform.products.domain.model.valueobjects.DefaultCategories;
+import _5bits.organik.platform.products.domain.repositories.CategoryRepository;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import static _5bits.organik.platform.products.domain.model.aggregates.Category.NAME_UNIQUE_CONSTRAINT;
+import java.util.Arrays;
 
-@Slf4j
+/**
+ * Application service that handles Category commands.
+ */
 @Service
 public class CategoryCommandServiceImpl implements CategoryCommandService {
-    private static final String DUPLICATE_CATEGORY_CONSTRAINT = NAME_UNIQUE_CONSTRAINT;
     private final CategoryRepository categoryRepository;
 
     public CategoryCommandServiceImpl(CategoryRepository categoryRepository) {
@@ -24,41 +25,25 @@ public class CategoryCommandServiceImpl implements CategoryCommandService {
     }
 
     @Override
-    @Transactional
-    public Result<Category, CategoryCommandFailure> handle(CreateCategoryCommand command) {
-        if (categoryRepository.existsByName(command.name())) {
-            log.warn("Duplicate category detected (pre-check): name={}", command.name().value());
-            return duplicateResult();
-        }
+    public Result<Long, ApplicationError> handle(CreateCategoryCommand command) {
+        if (categoryRepository.existsByName(command.name()))
+            return Result.failure(ApplicationError.conflict("Category", "Name '%s' already exists".formatted(command.name().value())));
+        var category = new Category(command);
         try {
-            var category = new Category(command);
-            var createdCategory = categoryRepository.save(category);
-            log.info("Category created: name={}, tone={}, id={}",
-                    command.name().value(),
-                    command.tone(),
-                    createdCategory.getId());
-            return Result.success(createdCategory);
-        } catch (DataIntegrityViolationException exception) {
-            if (isDuplicateCategoryViolation(exception)) {
-                log.warn("Duplicate category detected (constraint violation): name={}", command.name().value());
-                return duplicateResult();
+            category = categoryRepository.save(category);
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("create-category", e.getMessage()));
+        }
+        return Result.success(category.getId());
+    }
+
+    @Override
+    public void handle(SeedCategoriesCommand command) {
+        Arrays.stream(DefaultCategories.values()).forEach(defaultCategory -> {
+            var name = new CategoryName(defaultCategory.categoryName());
+            if (!categoryRepository.existsByName(name)) {
+                categoryRepository.save(new Category(new CreateCategoryCommand(name, defaultCategory.tone())));
             }
-            log.error("Unexpected data integrity violation saving category: name={}", command.name().value(), exception);
-            throw exception;
-        }
-    }
-
-    private Result<Category, CategoryCommandFailure> duplicateResult() {
-        return Result.failure(new CategoryCommandFailure.Duplicate());
-    }
-
-    private boolean isDuplicateCategoryViolation(DataIntegrityViolationException exception) {
-        Throwable violationCause = exception;
-        while (violationCause != null) {
-            String message = violationCause.getMessage();
-            if (message != null && message.contains(DUPLICATE_CATEGORY_CONSTRAINT)) return true;
-            violationCause = violationCause.getCause();
-        }
-        return false;
+        });
     }
 }

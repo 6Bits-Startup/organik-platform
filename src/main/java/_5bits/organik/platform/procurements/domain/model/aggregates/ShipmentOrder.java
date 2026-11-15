@@ -1,101 +1,112 @@
 package _5bits.organik.platform.procurements.domain.model.aggregates;
 
-import _5bits.organik.platform.procurements.domain.model.entities.ShipmentOrderLine;
 import _5bits.organik.platform.procurements.domain.model.commands.CreateShipmentOrderCommand;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.MinimarketId;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.OrderStatus;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.RejectionReason;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.SupplierId;
-import _5bits.organik.platform.procurements.domain.model.valueobjects.UserId;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.converters.MinimarketIdAttributeConverter;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.converters.RejectionReasonAttributeConverter;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.converters.SupplierIdAttributeConverter;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.converters.UserIdAttributeConverter;
-import jakarta.persistence.*;
+import _5bits.organik.platform.procurements.domain.model.entities.ShipmentOrderLine;
+import _5bits.organik.platform.procurements.domain.model.events.ShipmentOrderAcceptedEvent;
+import _5bits.organik.platform.procurements.domain.model.valueobjects.*;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
+/**
+ * Shipment order aggregate root.
+ * <p>
+ * Represents the products a supplier sends to a minimarket. The minimarket administrator
+ * accepts or rejects it; once accepted, its lots enter the minimarket inventory.
+ * </p>
+ */
 @Getter
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-public class ShipmentOrder {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class ShipmentOrder extends AbstractDomainAggregateRoot<ShipmentOrder> {
     private Long id;
-
-    @Column(nullable = false)
-    @Convert(converter = SupplierIdAttributeConverter.class)
     private SupplierId supplierId;
-
-    @Column(nullable = false)
-    @Convert(converter = MinimarketIdAttributeConverter.class)
     private MinimarketId minimarketId;
-
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "shipment_order_id", nullable = false)
-    private List<ShipmentOrderLine> lines = new ArrayList<>();
-
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
+    private List<ShipmentOrderLine> lines;
     private OrderStatus status;
-
-    @Convert(converter = UserIdAttributeConverter.class)
     private UserId decidedBy;
-
-    private Instant decidedAt;
-
-    @Convert(converter = RejectionReasonAttributeConverter.class)
+    private Date decidedAt;
     private RejectionReason rejectionReason;
+    private Date createdAt;
+    private Date updatedAt;
 
-    @Column(nullable = false, updatable = false)
-    @CreatedDate
-    private Instant createdAt;
-
-    @Column(nullable = false)
-    @LastModifiedDate
-    private Instant updatedAt;
-
-    protected ShipmentOrder() {}
-
-    public ShipmentOrder(CreateShipmentOrderCommand command) {
-        this.supplierId = command.supplierId();
-        this.minimarketId = command.minimarketId();
-        this.lines = command.lines().stream()
-                .map(ShipmentOrderLine::new)
-                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    public ShipmentOrder(SupplierId supplierId, MinimarketId minimarketId, List<ShipmentOrderLine> lines) {
+        this.supplierId = Objects.requireNonNull(supplierId, "supplierId must not be null");
+        this.minimarketId = Objects.requireNonNull(minimarketId, "minimarketId must not be null");
+        this.lines = lines != null ? new ArrayList<>(lines) : new ArrayList<>();
         this.status = OrderStatus.PENDING;
     }
 
-    public void accept(UserId decidedBy) {
-        if (decidedBy == null) {
-            throw new IllegalArgumentException("Deciding user is required");
-        }
-        ensurePending();
-        this.status = OrderStatus.ACCEPTED;
-        this.decidedBy = decidedBy;
-        this.decidedAt = Instant.now();
-        this.rejectionReason = null;
+    public ShipmentOrder(CreateShipmentOrderCommand command) {
+        this(command.supplierId(), command.minimarketId(), command.lines().stream()
+                .map(line -> new ShipmentOrderLine(line.productId(), line.quantity(), line.lotCode(), line.expiresOn()))
+                .toList());
     }
 
+    public static ShipmentOrder reconstitute(Long id, SupplierId supplierId, MinimarketId minimarketId,
+                                             List<ShipmentOrderLine> lines, OrderStatus status, UserId decidedBy,
+                                             Date decidedAt, RejectionReason rejectionReason,
+                                             Date createdAt, Date updatedAt) {
+        var shipmentOrder = new ShipmentOrder(supplierId, minimarketId, lines);
+        shipmentOrder.id = id;
+        shipmentOrder.status = status;
+        shipmentOrder.decidedBy = decidedBy;
+        shipmentOrder.decidedAt = decidedAt;
+        shipmentOrder.rejectionReason = rejectionReason;
+        shipmentOrder.createdAt = createdAt;
+        shipmentOrder.updatedAt = updatedAt;
+        return shipmentOrder;
+    }
+
+    /**
+     * @return {@code true} when the order has not been accepted or rejected yet
+     */
+    public boolean isPending() {
+        return this.status == OrderStatus.PENDING;
+    }
+
+    /**
+     * Accepts the shipment order and registers the {@link ShipmentOrderAcceptedEvent}.
+     *
+     * @param decidedBy user that accepts the order
+     */
+    public void accept(UserId decidedBy) {
+        ensurePending();
+        this.status = OrderStatus.ACCEPTED;
+        this.decidedBy = Objects.requireNonNull(decidedBy, "decidedBy must not be null");
+        this.decidedAt = new Date();
+        this.rejectionReason = null;
+        this.registerDomainEvent(new ShipmentOrderAcceptedEvent(
+                id,
+                supplierId.value(),
+                minimarketId.value(),
+                lines.stream()
+                        .map(line -> new ShipmentOrderAcceptedEvent.AcceptedLine(
+                                line.getProductId().value(),
+                                line.getQuantity().value(),
+                                line.getLotCode().value(),
+                                line.getExpiresOn()))
+                        .toList()));
+    }
+
+    /**
+     * Rejects the shipment order.
+     *
+     * @param decidedBy user that rejects the order
+     * @param reason rejection reason
+     */
     public void reject(UserId decidedBy, RejectionReason reason) {
-        if (decidedBy == null || reason == null) {
-            throw new IllegalArgumentException("Deciding user and rejection reason are required");
-        }
         ensurePending();
         this.status = OrderStatus.REJECTED;
-        this.decidedBy = decidedBy;
-        this.decidedAt = Instant.now();
-        this.rejectionReason = reason;
+        this.decidedBy = Objects.requireNonNull(decidedBy, "decidedBy must not be null");
+        this.decidedAt = new Date();
+        this.rejectionReason = Objects.requireNonNull(reason, "reason must not be null");
     }
 
     private void ensurePending() {
-        if (this.status != OrderStatus.PENDING) {
+        if (!isPending()) {
             throw new IllegalStateException("Only pending shipment orders can be decided");
         }
     }

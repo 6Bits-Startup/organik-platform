@@ -6,12 +6,17 @@ import _5bits.organik.platform.products.domain.model.aggregates.Product;
 import _5bits.organik.platform.products.domain.model.queries.GetAllProductsByCategoryIdQuery;
 import _5bits.organik.platform.products.domain.model.queries.GetAllProductsQuery;
 import _5bits.organik.platform.products.domain.model.queries.GetProductByIdQuery;
+import _5bits.organik.platform.products.domain.model.valueobjects.CategoryId;
 import _5bits.organik.platform.products.interfaces.rest.resources.CreateProductResource;
 import _5bits.organik.platform.products.interfaces.rest.resources.ProductResource;
+import _5bits.organik.platform.products.interfaces.rest.resources.UpdateProductResource;
 import _5bits.organik.platform.products.interfaces.rest.transform.CreateProductCommandFromResourceAssembler;
-import _5bits.organik.platform.products.interfaces.rest.transform.ProductsValueObjectFromStringAssembler;
-import _5bits.organik.platform.products.interfaces.rest.transform.ResponseEntityFromProductCommandResultAssembler;
-import _5bits.organik.platform.products.interfaces.rest.transform.ResponseEntityFromProductQueryResultAssembler;
+import _5bits.organik.platform.products.interfaces.rest.transform.ProductResourceFromEntityAssembler;
+import _5bits.organik.platform.products.interfaces.rest.transform.UpdateProductCommandFromResourceAssembler;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
+import _5bits.organik.platform.shared.application.result.Result;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ProblemDetailFromApplicationErrorAssembler;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,115 +25,113 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
-
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-@Slf4j
+/**
+ * REST controller that exposes product endpoints.
+ */
 @RestController
 @RequestMapping(value = "/api/v1/products", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Products", description = "Endpoints for products")
+@Tag(name = "Products", description = "Product catalog management endpoints")
 public class ProductsController {
     private final ProductCommandService productCommandService;
     private final ProductQueryService productQueryService;
-    private final MessageSource messageSource;
 
-    public ProductsController(ProductCommandService productCommandService, ProductQueryService productQueryService, MessageSource messageSource) {
+    public ProductsController(ProductCommandService productCommandService, ProductQueryService productQueryService) {
         this.productCommandService = productCommandService;
         this.productQueryService = productQueryService;
-        this.messageSource = messageSource;
     }
 
-    @Operation(
-            summary = "Create a product",
-            description = "Creates a product with its SKU, name, category, supplier, measurement unit and minimum stock",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Product creation request",
-                    content = @Content(schema = @Schema(implementation = CreateProductResource.class))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Product created",
-                    content = @Content(schema = @Schema(implementation = ProductResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Category not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "409", description = "Conflict - product already exists for the given SKU",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @PostMapping
+    @Operation(summary = "Create a product", description = "Creates a product of the catalog with a unique SKU.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Product created successfully",
+                    content = @Content(schema = @Schema(implementation = ProductResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "409", description = "Conflict - resource already exists"),
+            @ApiResponse(responseCode = "404", description = "Referenced resource not found")
+    })
     public ResponseEntity<?> createProduct(@Valid @RequestBody CreateProductResource resource) {
-        log.debug("POST /api/v1/products – sku={}, categoryId={}", resource.sku(), resource.categoryId());
-        var product = productCommandService
-                .handle(CreateProductCommandFromResourceAssembler.toCommandFromResource(resource));
-        var response = ResponseEntityFromProductCommandResultAssembler.toResponseEntityFromResult(product, messageSource);
-        log.debug("POST /api/v1/products – response status={}", response.getStatusCode());
-        return response;
+        var command = CreateProductCommandFromResourceAssembler.toCommandFromResource(resource);
+        var result = productCommandService.handle(command)
+                .flatMap(productId -> productQueryService.handle(new GetProductByIdQuery(productId))
+                        .<Result<Product, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("Product", productId.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                ProductResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
     }
 
-    @Operation(
-            summary = "Get a product by ID",
-            description = "Gets a product by the provided ID")
+    @GetMapping("/{productId}")
+    @Operation(summary = "Get product by ID", description = "Retrieves a specific product by its unique identifier.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Product found",
                     content = @Content(schema = @Schema(implementation = ProductResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Product not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(responseCode = "404", description = "Product not found")
     })
-    @GetMapping("{id}")
-    public ResponseEntity<?> getProductById(@PathVariable Long id) {
-        log.debug("GET /api/v1/products/{}", id);
-        if (id == null || id <= 0) {
-            return ResponseEntityFromProductQueryResultAssembler.badRequest(
-                    messageSource,
-                    "product.error.id.invalid");
-        }
-        Optional<Product> product = productQueryService.handle(new GetProductByIdQuery(id));
+    public ResponseEntity<?> getProductById(
+            @PathVariable
+            @Parameter(description = "Product unique identifier", example = "1", required = true)
+            Long productId
+    ) {
+        var product = productQueryService.handle(new GetProductByIdQuery(productId));
         if (product.isEmpty()) {
-            log.debug("Product not found for id={}", id);
-            return ResponseEntityFromProductQueryResultAssembler.notFound(
-                    messageSource,
-                    "product.error.notFoundById",
-                    id);
+            var error = ApplicationError.notFound("Product", productId.toString());
+            return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
         }
-        return ResponseEntityFromProductQueryResultAssembler.toResponseEntityFromProduct(product.orElseThrow());
+        return ResponseEntity.ok(ProductResourceFromEntityAssembler.toResourceFromEntity(product.get()));
     }
 
-    @Operation(
-            summary = "Get products with optional category filter",
-            description = "Gets every registered product, or only the products of a category when categoryId is provided")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Products found",
-                    content = @Content(schema = @Schema(implementation = ProductResource[].class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @GetMapping
-    public ResponseEntity<?> getProductsWithParameters(
-            @Parameter(name = "categoryId", description = "Category ID", schema = @Schema(minimum = "1"))
-            @RequestParam(name = "categoryId", required = false) Long categoryId) {
-        if (categoryId == null) {
-            log.debug("GET /api/v1/products");
-            var products = productQueryService.handle(new GetAllProductsQuery());
-            return ResponseEntityFromProductQueryResultAssembler.toResponseEntityFromList(products);
+    @Operation(summary = "Get products", description = "Retrieves the products filtered by categoryId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Products retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = ProductResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
+    })
+    public ResponseEntity<?> getProducts(
+            @RequestParam(required = false)
+            @Parameter(description = "Category identifier", example = "1")
+            Long categoryId
+    ) {
+        if (categoryId != null) {
+            var products = productQueryService.handle(new GetAllProductsByCategoryIdQuery(new CategoryId(categoryId)));
+            return ResponseEntity.ok(products.stream().map(ProductResourceFromEntityAssembler::toResourceFromEntity).toList());
         }
-        if (categoryId <= 0) {
-            log.warn("Rejected invalid query param categoryId");
-            return ResponseEntityFromProductQueryResultAssembler.badRequest(
-                    messageSource,
-                    "product.error.categoryId.invalid");
-        }
-        log.debug("GET /api/v1/products?categoryId={}", categoryId);
-        var products = productQueryService.handle(new GetAllProductsByCategoryIdQuery(
-                ProductsValueObjectFromStringAssembler.toCategoryIdFromLong(categoryId)));
-        return ResponseEntityFromProductQueryResultAssembler.toResponseEntityFromList(products);
+        var products = productQueryService.handle(new GetAllProductsQuery());
+        return ResponseEntity.ok(products.stream().map(ProductResourceFromEntityAssembler::toResourceFromEntity).toList());
+    }
+
+    @PutMapping("/{productId}")
+    @Operation(summary = "Update product", description = "Updates the name, category, supplier, unit and minimum stock of a product.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Product updated successfully",
+                    content = @Content(schema = @Schema(implementation = ProductResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "404", description = "Product or category not found")
+    })
+    public ResponseEntity<?> updateProduct(
+            @PathVariable
+            @Parameter(description = "Product unique identifier", example = "1", required = true)
+            Long productId,
+            @Valid @RequestBody UpdateProductResource resource
+    ) {
+        var command = UpdateProductCommandFromResourceAssembler.toCommandFromResource(productId, resource);
+        var result = productCommandService.handle(command)
+                .flatMap(id -> productQueryService.handle(new GetProductByIdQuery(id))
+                        .<Result<Product, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("Product", id.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                ProductResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.OK
+        );
     }
 }

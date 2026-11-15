@@ -5,17 +5,16 @@ import _5bits.organik.platform.products.domain.model.aggregates.Product;
 import _5bits.organik.platform.products.domain.model.queries.GetAllProductsByCategoryIdQuery;
 import _5bits.organik.platform.products.domain.model.queries.GetAllProductsQuery;
 import _5bits.organik.platform.products.domain.model.queries.GetProductByIdQuery;
-import _5bits.organik.platform.products.infrastructure.persistence.jpa.ProductRepository;
-import lombok.extern.slf4j.Slf4j;
+import _5bits.organik.platform.products.domain.repositories.ProductRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
+/**
+ * Application service that handles Product queries.
+ */
 @Service
-@Transactional(readOnly = true)
 public class ProductQueryServiceImpl implements ProductQueryService {
     private final ProductRepository productRepository;
 
@@ -24,26 +23,17 @@ public class ProductQueryServiceImpl implements ProductQueryService {
     }
 
     @Override
+    public Optional<Product> handle(GetProductByIdQuery query) {
+        return productRepository.findById(query.id());
+    }
+
+    @Override
     public List<Product> handle(GetAllProductsQuery query) {
-        log.debug("Querying all products");
-        var results = productRepository.findAll();
-        log.debug("Found {} product(s)", results.size());
-        return results;
+        return productRepository.findAll();
     }
 
     @Override
     public List<Product> handle(GetAllProductsByCategoryIdQuery query) {
-        log.debug("Querying all products for categoryId={}", query.categoryId().value());
-        var results = productRepository.findAllByCategoryId(query.categoryId());
-        log.debug("Found {} product(s) for categoryId={}", results.size(), query.categoryId().value());
-        return results;
-    }
-
-    @Override
-    public Optional<Product> handle(GetProductByIdQuery query) {
-        log.debug("Querying product by id={}", query.id());
-        var result = productRepository.findById(query.id());
-        if (result.isEmpty()) log.debug("No product found for id={}", query.id());
-        return result;
+        return productRepository.findAllByCategoryId(query.categoryId());
     }
 }

@@ -1,66 +1,74 @@
 package _5bits.organik.platform.iam.application.internal.commandservices;
 
 import _5bits.organik.platform.iam.application.commandservices.UserCommandService;
-import _5bits.organik.platform.iam.application.commandservices.UserCommandFailure;
+import _5bits.organik.platform.iam.application.internal.outboundservices.hashing.HashingService;
+import _5bits.organik.platform.iam.application.internal.outboundservices.tokens.TokenService;
 import _5bits.organik.platform.iam.domain.model.aggregates.User;
-import _5bits.organik.platform.iam.domain.model.commands.CreateUserCommand;
-import _5bits.organik.platform.iam.infrastructure.persistence.jpa.UserRepository;
+import _5bits.organik.platform.iam.domain.model.commands.SignInCommand;
+import _5bits.organik.platform.iam.domain.model.commands.SignUpCommand;
+import _5bits.organik.platform.iam.domain.repositories.RoleRepository;
+import _5bits.organik.platform.iam.domain.repositories.UserRepository;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import static _5bits.organik.platform.iam.domain.model.aggregates.User.EMAIL_UNIQUE_CONSTRAINT;
-
-@Slf4j
+/**
+ * User command service implementation.
+ */
 @Service
 public class UserCommandServiceImpl implements UserCommandService {
-    private static final String DUPLICATE_USER_CONSTRAINT = EMAIL_UNIQUE_CONSTRAINT;
-    private final UserRepository userRepository;
 
-    public UserCommandServiceImpl(UserRepository userRepository) {
+    private final UserRepository userRepository;
+    private final HashingService hashingService;
+    private final TokenService tokenService;
+    private final RoleRepository roleRepository;
+
+    public UserCommandServiceImpl(
+            UserRepository userRepository,
+            HashingService hashingService,
+            TokenService tokenService,
+            RoleRepository roleRepository) {
         this.userRepository = userRepository;
+        this.hashingService = hashingService;
+        this.tokenService = tokenService;
+        this.roleRepository = roleRepository;
     }
 
     @Override
-    @Transactional
-    public Result<User, UserCommandFailure> handle(CreateUserCommand command) {
-        if (userRepository.existsByEmail(command.email())) {
-            log.warn("Duplicate user detected (pre-check): email={}", command.email().value());
-            return duplicateResult();
+    public Result<ImmutablePair<User, String>, ApplicationError> handle(SignInCommand command) {
+        var user = userRepository.findByUsername(command.username());
+        if (user.isEmpty()) {
+            return Result.failure(ApplicationError.notFound("User", command.username()));
         }
-        try {
-            var user = new User(command);
-            var createdUser = userRepository.save(user);
-            log.info("User created: email={}, role={}, id={}, createdAt={}, updatedAt={}",
-                    command.email().value(),
-                    command.role(),
-                    createdUser.getId(),
-                    createdUser.getCreatedAt(),
-                    createdUser.getUpdatedAt());
-            return Result.success(createdUser);
-        } catch (DataIntegrityViolationException exception) {
-            if (isDuplicateUserViolation(exception)) {
-                log.warn("Duplicate user detected (constraint violation):  email={}", command.email().value());
-                return duplicateResult();
-            }
-            log.error("Unexpected data integrity violation saving user: email={}", command.email().value(), exception);
-            throw exception;
+        if (!hashingService.matches(command.password(), user.get().getPassword())) {
+            return Result.failure(ApplicationError.validationError("credentials", "Invalid username or password"));
         }
+        var token = tokenService.generateToken(user.get().getUsername());
+        return Result.success(ImmutablePair.of(user.get(), token));
     }
 
-    private Result<User, UserCommandFailure> duplicateResult() {
-        return Result.failure(new UserCommandFailure.Duplicate());
-    }
-
-    private boolean isDuplicateUserViolation(DataIntegrityViolationException exception) {
-        Throwable violationCause = exception;
-        while (violationCause != null) {
-            String message = violationCause.getMessage();
-            if (message != null && message.contains(DUPLICATE_USER_CONSTRAINT)) return true;
-            violationCause = violationCause.getCause();
+    @Override
+    public Result<User, ApplicationError> handle(SignUpCommand command) {
+        if (userRepository.existsByUsername(command.username())) {
+            return Result.failure(ApplicationError.conflict("User", "Username already exists"));
         }
-        return false;
+        var roles = command.roles().stream()
+                .map(role -> roleRepository.findByName(role.getName()))
+                .toList();
+
+        if (roles.stream().anyMatch(java.util.Optional::isEmpty)) {
+            return Result.failure(ApplicationError.notFound("Role", "one or more role names"));
+        }
+
+        var resolvedRoles = roles.stream()
+                .map(java.util.Optional::get)
+                .toList();
+
+        var user = new User(command.username(), hashingService.encode(command.password()), resolvedRoles);
+        userRepository.save(user);
+        return userRepository.findByUsername(command.username())
+                .<Result<User, ApplicationError>>map(Result::success)
+                .orElseGet(() -> Result.failure(ApplicationError.unexpected("sign-up", "Created user could not be reloaded")));
     }
 }

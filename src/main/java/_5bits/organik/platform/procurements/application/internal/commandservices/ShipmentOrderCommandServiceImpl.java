@@ -1,16 +1,18 @@
 package _5bits.organik.platform.procurements.application.internal.commandservices;
 
 import _5bits.organik.platform.procurements.application.commandservices.ShipmentOrderCommandService;
-import _5bits.organik.platform.procurements.application.commandservices.ShipmentOrderCommandFailure;
 import _5bits.organik.platform.procurements.domain.model.aggregates.ShipmentOrder;
 import _5bits.organik.platform.procurements.domain.model.commands.AcceptShipmentOrderCommand;
 import _5bits.organik.platform.procurements.domain.model.commands.CreateShipmentOrderCommand;
 import _5bits.organik.platform.procurements.domain.model.commands.RejectShipmentOrderCommand;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.ShipmentOrderRepository;
+import _5bits.organik.platform.procurements.domain.repositories.ShipmentOrderRepository;
+import _5bits.organik.platform.shared.application.result.ApplicationError;
 import _5bits.organik.platform.shared.application.result.Result;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Application service that handles ShipmentOrder commands.
+ */
 @Service
 public class ShipmentOrderCommandServiceImpl implements ShipmentOrderCommandService {
     private final ShipmentOrderRepository shipmentOrderRepository;
@@ -20,38 +22,33 @@ public class ShipmentOrderCommandServiceImpl implements ShipmentOrderCommandServ
     }
 
     @Override
-    @Transactional
-    public Result<ShipmentOrder, ShipmentOrderCommandFailure> handle(CreateShipmentOrderCommand command) {
-        return Result.success(shipmentOrderRepository.save(new ShipmentOrder(command)));
+    public Result<Long, ApplicationError> handle(CreateShipmentOrderCommand command) {
+        var shipmentOrder = new ShipmentOrder(command);
+        try {
+            shipmentOrder = shipmentOrderRepository.save(shipmentOrder);
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("create-shipment-order", e.getMessage()));
+        }
+        return Result.success(shipmentOrder.getId());
     }
 
     @Override
-    @Transactional
-    public Result<ShipmentOrder, ShipmentOrderCommandFailure> handle(AcceptShipmentOrderCommand command) {
-        var order = shipmentOrderRepository.findById(command.shipmentOrderId()).orElse(null);
-        if (order == null) {
-            return Result.failure(new ShipmentOrderCommandFailure.NotFound());
-        }
-        try {
-            order.accept(command.decidedBy());
-        } catch (IllegalStateException exception) {
-            return Result.failure(new ShipmentOrderCommandFailure.InvalidState());
-        }
-        return Result.success(shipmentOrderRepository.save(order));
+    public Result<Long, ApplicationError> handle(AcceptShipmentOrderCommand command) {
+        return shipmentOrderRepository.findById(command.shipmentOrderId()).map(shipmentOrder -> {
+            if (!shipmentOrder.isPending())
+                return Result.<Long, ApplicationError>failure(ApplicationError.conflict("ShipmentOrder", "Only pending shipment orders can be accepted"));
+            shipmentOrder.accept(command.decidedBy());
+            return Result.<Long, ApplicationError>success(shipmentOrderRepository.save(shipmentOrder).getId());
+        }).orElseGet(() -> Result.failure(ApplicationError.notFound("ShipmentOrder", command.shipmentOrderId().toString())));
     }
 
     @Override
-    @Transactional
-    public Result<ShipmentOrder, ShipmentOrderCommandFailure> handle(RejectShipmentOrderCommand command) {
-        var order = shipmentOrderRepository.findById(command.shipmentOrderId()).orElse(null);
-        if (order == null) {
-            return Result.failure(new ShipmentOrderCommandFailure.NotFound());
-        }
-        try {
-            order.reject(command.decidedBy(), command.reason());
-        } catch (IllegalStateException exception) {
-            return Result.failure(new ShipmentOrderCommandFailure.InvalidState());
-        }
-        return Result.success(shipmentOrderRepository.save(order));
+    public Result<Long, ApplicationError> handle(RejectShipmentOrderCommand command) {
+        return shipmentOrderRepository.findById(command.shipmentOrderId()).map(shipmentOrder -> {
+            if (!shipmentOrder.isPending())
+                return Result.<Long, ApplicationError>failure(ApplicationError.conflict("ShipmentOrder", "Only pending shipment orders can be rejected"));
+            shipmentOrder.reject(command.decidedBy(), command.reason());
+            return Result.<Long, ApplicationError>success(shipmentOrderRepository.save(shipmentOrder).getId());
+        }).orElseGet(() -> Result.failure(ApplicationError.notFound("ShipmentOrder", command.shipmentOrderId().toString())));
     }
 }

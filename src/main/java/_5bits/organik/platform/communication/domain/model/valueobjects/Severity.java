@@ -8,16 +8,16 @@ public record Severity(String value) {
             "WARNING",
             "CRITICAL"
     );
-    private static final String NOT_BLANK_MESSAGE_KEY = "notification.error.severity.notBlank";
-    private static final String PATTERN_MESSAGE_KEY = "notification.error.severity.pattern";
+    private static final String NOT_BLANK_MESSAGE = "The notification severity is required.";
+    private static final String PATTERN_MESSAGE = "The notification severity must be INFO, WARNING or CRITICAL.";
 
     public Severity {
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(NOT_BLANK_MESSAGE_KEY);
+            throw new IllegalArgumentException(NOT_BLANK_MESSAGE);
         }
         value = value.trim().toUpperCase();
         if (!ALLOWED_SEVERITIES.contains(value)) {
-            throw new IllegalArgumentException(PATTERN_MESSAGE_KEY);
+            throw new IllegalArgumentException(PATTERN_MESSAGE);
         }
     }
 }

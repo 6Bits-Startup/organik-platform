@@ -1,21 +1,24 @@
 package _5bits.organik.platform.iam.interfaces.rest.resources;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 
-@Schema(description = "Response resource representing a user")
+/**
+ * Resource representing an IAM user returned by the REST API.
+ */
+@Schema(
+    name = "UserResponse",
+    description = "User information response",
+    example = "{\"id\": 1, \"username\": \"john.doe\", \"roles\": [\"ROLE_OPERATOR\"]}"
+)
 public record UserResource(
-        @Schema(description = "Persistent identifier", example = "1")
-        Long id,
-        @Schema(description = "Full name of the user", example = "Marco Quispe")
-        String fullName,
-        @Schema(description = "Email address of the user", example = "marco@bioandes.pe")
-        String email,
-        @Schema(description = "Role of the user", example = "SUPPLIER")
-        String role,
-        @Schema(description = "Invitation status of the user", example = "PENDING")
-        String status,
-        @Schema(description = "Minimarket the user works for", example = "mm-vida-verde")
-        String minimarketId,
-        @Schema(description = "Supplier company the user works for", example = "sup-bioandes")
-        String supplierId) {
+    @Schema(description = "User unique identifier", example = "1")
+    Long id,
+
+    @Schema(description = "User username", example = "john.doe")
+    String username,
+
+    @Schema(description = "User assigned roles", example = "[\"ROLE_OPERATOR\"]")
+    List<String> roles
+) {
 }

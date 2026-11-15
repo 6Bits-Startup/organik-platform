@@ -1,135 +1,150 @@
-# OrganiK Platform (web-application-backend)
+# OrganiK Platform
 
-## Overview
+OrganiK Platform is the RESTful API of OrganiK, the web application that helps minimarkets of organic products control their inventory, expiration dates, supply and conservation conditions, and connects them with their suppliers. It is built on Domain-Driven Design with a hexagonal (ports and adapters) architecture, CQRS application services, and JWT-based security.
 
-OrganiK Platform is the Spring Boot backend of OrganiK, a web application that helps minimarkets of organic products control their inventory, expiration dates, supply and conservation conditions, and connects them with their suppliers. The project is structured around Domain-Driven Design (DDD), organized into bounded contexts (`iam`, `suppliers`, `requisition`, `procurements`, `conservation` and `shared`), using application-layer command/query contracts, a shared `Result` abstraction for command outcomes, and JPA persistence.
+## Tech Stack
 
-The backend serves the OrganiK web application ([organik-website-v2](https://github.com/5Bits-OrganiK/organik-website-v2)). It is built incrementally: the `iam` bounded context is complete up to its REST API, while the other bounded contexts currently contain their domain model and persistence mapping.
-
-## Features
-
-- List users scoped to a minimarket
-- Retrieve a user by its identifier
-- Retrieve a user by email address
-- Create (persist) a new user with a pending invitation
-- Domain model (aggregates, value objects, commands and JPA converters) for suppliers and their offered products, supply requests, shipment orders and storage conservation
-- Map command and query outcomes to HTTP responses through interface-layer response translators
-- Custom Hibernate naming strategy to convert identifiers to snake_case and plural table names
-
-## Bounded contexts
-
-| Bounded context | Responsibility                                      | Current state                                    |
-|-----------------|-----------------------------------------------------|--------------------------------------------------|
-| `iam`           | Users, roles and invitation status                  | Domain, application and REST API                 |
-| `suppliers`     | Suppliers and the products they offer               | Domain and persistence mapping                   |
-| `requisition`   | Supply requests shared by minimarkets               | Domain and persistence mapping                   |
-| `procurements`  | Shipment orders and their acceptance or rejection   | Domain and persistence mapping                   |
-| `conservation`  | Storage zones and temperature and humidity readings | Domain and persistence mapping                   |
-| `shared`        | `Result` abstraction and the naming strategy        | Complete                                         |
-
-## Technologies
-
-- OpenJDK 27 and Spring Boot 4.1.1
-- Apache Maven 3.10.0 (through the Maven wrapper)
-- Spring Web (REST controllers)
-- Spring Data JPA (Hibernate) with MySQL
-- Spring Validation (Jakarta Bean Validation)
-- SpringDoc OpenAPI 3 / Swagger UI
-- Lombok (compile-time helpers)
-- PlantUML (architecture diagrams in `docs/`)
+| Category         | Technology                                      |
+|------------------|-------------------------------------------------|
+| Language         | **Java 27**                                     |
+| Framework        | **Spring Boot 4.1.1**                           |
+| Database         | **MySQL 8+**                                    |
+| Persistence      | **Spring Data JPA / Hibernate**                 |
+| Security         | **Spring Security + JWT (jjwt) + BCrypt**       |
+| API Docs         | **SpringDoc OpenAPI + Scalar API Reference**    |
+| Build Tool       | **Maven (wrapper included)**                    |
+| Containerization | **Docker**                                      |
+| Concurrency      | **Project Loom Virtual Threads**                |
 
 ## Prerequisites
 
 - OpenJDK 27
-- Apache Maven 3.10.0 (or the included `mvnw` wrapper)
-- MySQL 8+ (database server)
+- MySQL 8+ running locally (or reachable through environment variables)
+- Maven, or the included `mvnw` wrapper
+- Docker (optional)
 
-## Environment variables
+## Project Structure
 
-The application resolves credentials and connection details from environment variables. Set the following before running locally:
+Every bounded context follows the same four layers:
 
-| Variable            | Description                                             |
-|---------------------|---------------------------------------------------------|
-| `DATABASE_USER`     | MySQL username                                          |
-| `DATABASE_PASSWORD` | MySQL password                                          |
-| `DATABASE_URL`      | Database host / hostname used by the production profile |
-| `DATABASE_NAME`     | Database name used by the production profile            |
-| `DATABASE_PORT`     | Database port used by the production profile            |
+```
+bounded_context/
+├── domain/          # Aggregates, entities, value objects, commands, queries, events and repository ports (pure Java)
+├── application/     # Command and query services, event handlers and outbound ACL services
+├── infrastructure/  # JPA persistence entities, converters, assemblers, Spring Data repositories and repository adapters
+└── interfaces/      # REST controllers, resources, transform assemblers, ACL facades and integration events
+```
 
-The default and `dev` profiles use the `organik-db` database on `localhost:3306`, which is created automatically when it does not exist.
+| Bounded context | Responsibility                                                                   |
+|-----------------|----------------------------------------------------------------------------------|
+| `iam`           | Users, roles, sign-up, sign-in and JWT authorization                             |
+| `profiles`      | Personal information of each user and preferences (language, expiration alerts) |
+| `products`      | Product catalog and categories                                                   |
+| `inventory`     | Stock lots, inventory movements and offers                                       |
+| `suppliers`     | Suppliers and the products they offer                                            |
+| `requisition`   | Supply requests from a minimarket to a supplier                                  |
+| `procurements`  | Shipment orders and their acceptance or rejection                                |
+| `conservation`  | Storage zones and temperature and humidity readings                              |
+| `communication` | Notifications shown to the minimarket staff                                      |
+| `dashboard`     | Operational summary of a minimarket for its home view                            |
+| `analytics`     | Operational indicators and activity history                                      |
+| `shared`        | Result and error model, base classes, OpenAPI/Scalar, i18n and error handling    |
 
-## Spring profiles
+### Collaboration between bounded contexts
 
-| Profile     | Usage                                                                |
-|-------------|----------------------------------------------------------------------|
-| *(default)* | Uses `localhost:3306` with SSL disabled; SQL logging on              |
-| `dev`       | Uses `localhost:3306` with SSL disabled; SQL logging on              |
-| `prod`      | Builds the JDBC URL from env vars with SSL required; SQL logging off |
+- `profiles` checks that the user exists through the `IamContextFacade` ACL (`ExternalIamService`).
+- `procurements` publishes `ShipmentOrderAcceptedIntegrationEvent`: `inventory` registers the stock lots of the order and `communication` creates an `ORDER` notification.
+- `inventory` publishes `StockLotLowStockIntegrationEvent` when a lot reaches its minimum stock: `communication` creates a `LOW_STOCK` notification.
+- `conservation` publishes `StorageReadingOutOfRangeIntegrationEvent`: `communication` creates a `CONSERVATION` notification.
+- `analytics` records the three integration events above in the activity history.
+- `dashboard` and `analytics` read the other contexts through their ACL facades (`InventoryContextFacade`, `ProcurementsContextFacade`, `RequisitionContextFacade`, `CommunicationContextFacade`, `ConservationContextFacade`, `ProfilesContextFacade`).
 
-Set the active profile with:
+## Configuration
+
+Spring profiles: `dev` (default) and `prod`. The `prod` profile reads every setting from environment variables.
+
+### Environment Variables
+
+Copy `.env.example` to `.env` (never commit it) or export the variables in your shell:
+
+| Variable                 | Description                                       | Default (dev)  |
+|--------------------------|---------------------------------------------------|----------------|
+| `SPRING_PROFILES_ACTIVE` | Active Spring profile                             | `dev`          |
+| `PORT`                   | HTTP port                                         | `8080`         |
+| `DATABASE_URL`           | MySQL host                                        | `localhost`    |
+| `DATABASE_PORT`          | MySQL port                                        | `3306`         |
+| `DATABASE_NAME`          | Database name                                     | `organik-db`   |
+| `DATABASE_USER`          | Database user                                     | `root`         |
+| `DATABASE_PASSWORD`      | Database password                                 | `password`     |
+| `JWT_SECRET`             | Secret used to sign JWT tokens (required in prod) | —              |
+
+## Getting Started
+
+### 1) Database Setup
+
+Start MySQL. In the `dev` profile the database is created automatically if it does not exist.
+
+### 2) Run the Application
+
+#### Using Maven
 
 ```bash
-export SPRING_PROFILES_ACTIVE=dev
+./mvnw spring-boot:run
 ```
 
-## Technical stories
-
-The API-focused technical stories for frontend integration are in [`docs/user-stories.md`](docs/user-stories.md).
-
-## Class diagram
-
-A PlantUML class diagram that reflects the code structure and bounded contexts is available at [`docs/class-diagram.puml`](docs/class-diagram.puml).
-
-## Architecture Decision Records
-
-Significant architecture decisions and their trade-offs are recorded in [`docs/adrs.md`](docs/adrs.md).
-
-## Architecture notes
-
-- `iam.application.commandservices` and `iam.application.queryservices` define the application-layer service contracts
-- `iam.application.internal.commandservices` and `iam.application.internal.queryservices` contain the implementations
-- `shared.application.result.Result` models command outcomes without introducing HTTP or domain concepts
-- `iam.interfaces.rest.transform.ResponseEntityFromUserCommandResultAssembler` maps command results to `ResponseEntity` values for the REST boundary
-- `iam.interfaces.rest.transform.ResponseEntityFromUserQueryResultAssembler` maps query results and localized query errors to `ResponseEntity` values for the REST boundary
-
-## API documentation (Swagger UI)
-
-When the application is running, interactive API documentation is available at:
-
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
-## Error responses
-
-- Invalid query parameters (`GET /api/v1/users`) return `400 Bad Request` with a localized `ProblemDetail` payload.
-- Invalid request bodies (`POST /api/v1/users`) return `400 Bad Request`.
-- Duplicate user creation returns `409 Conflict` with a localized `ProblemDetail` payload.
-- Not-found lookups (`GET /api/v1/users/{id}` and `GET /api/v1/users?email=...`) return `404 Not Found` with a localized `ProblemDetail` payload.
-
-## Getting started (quick)
-
-Install the prerequisites, ensure MySQL is running locally, and export the database credentials. Then run with the `dev` profile:
+#### Using Docker
 
 ```bash
-export DATABASE_USER=your_db_user
-export DATABASE_PASSWORD=your_db_password
-export SPRING_PROFILES_ACTIVE=dev
-./mvnw org.springframework.boot:spring-boot-maven-plugin:run
+docker build -t organik-platform .
+docker run -p 8080:8080 --env-file .env organik-platform
 ```
 
-On Windows PowerShell, set the variables with `$env:DATABASE_USER="your_db_user"`, `$env:DATABASE_PASSWORD="your_db_password"` and `$env:SPRING_PROFILES_ACTIVE="dev"`.
+On start-up the application seeds the IAM roles and the default product categories (`fruits-vegetables`, `dairy`, `grains`, `beverages`, `bakery`, `frozen`), whose names the web application uses to translate them.
 
-You can also run the `WebApplicationBackendApplication` class from your IDE with the same environment variables.
+### 3) API Documentation
 
-For the `prod` profile, also provide:
+- Scalar API Reference: `http://localhost:8080/scalar`
+- OpenAPI document: `http://localhost:8080/v3/api-docs`
 
-- `DATABASE_URL` (database host / hostname)
-- `DATABASE_PORT` (database port)
-- `DATABASE_NAME` (database name)
+### 4) Authentication
 
-The test suite includes an application-context test that connects to the configured MySQL database. Set the database credentials and ensure MySQL is available before running `./mvnw test`.
+1. Sign up: `POST /api/v1/users` with `username`, `password` and `roles` (`ROLE_ADMINISTRATOR`, `ROLE_OPERATOR`, `ROLE_SUPPLIER`).
+2. Sign in: `POST /api/v1/tokens` with `username` and `password`; the response contains the JWT `token`.
+3. Send `Authorization: Bearer <token>` in every other request.
 
-## Notes
+## Scripts and Commands
 
-- This repository is built incrementally: only the `iam` bounded context exposes a REST API for now; delete and update operations are not currently implemented.
+| Command                  | Description                                                |
+|--------------------------|------------------------------------------------------------|
+| `./mvnw spring-boot:run` | Runs the application with the `dev` profile                |
+| `./mvnw test`            | Runs the test suite (the context test requires MySQL)      |
+| `./mvnw clean package`   | Builds the executable JAR                                  |
+
+## API Surface
+
+| Bounded context | Endpoints |
+|-----------------|-----------|
+| IAM             | `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `POST /api/v1/tokens`, `GET /api/v1/roles` |
+| Profiles        | `POST /api/v1/profiles`, `GET /api/v1/profiles` (`userId`, `minimarketId`), `GET /api/v1/profiles/{profileId}`, `PUT /api/v1/profiles/{profileId}/preferences` |
+| Products        | `POST/GET /api/v1/categories`, `GET /api/v1/categories/{categoryId}`, `POST/GET /api/v1/products` (`categoryId`), `GET/PUT /api/v1/products/{productId}` |
+| Inventory       | `POST/GET /api/v1/stock-lots` (`minimarketId`), `GET /api/v1/stock-lots/{stockLotId}`, `POST/GET /api/v1/offers` (`stockLotId`), `GET /api/v1/offers/{offerId}`, `POST/GET /api/v1/inventory-movements` (`stockLotId`), `GET /api/v1/inventory-movements/{inventoryMovementId}` |
+| Suppliers       | `POST/GET /api/v1/suppliers`, `GET /api/v1/suppliers/{supplierId}`, `POST/GET /api/v1/offered-products` (`supplierId`), `GET /api/v1/offered-products/{offeredProductId}` |
+| Requisition     | `POST/GET /api/v1/supply-requests` (`minimarketId`, `supplierId`), `GET /api/v1/supply-requests/{supplyRequestId}`, `POST /api/v1/supply-requests/{supplyRequestId}/acceptances`, `POST /api/v1/supply-requests/{supplyRequestId}/rejections` |
+| Procurements    | `POST/GET /api/v1/shipment-orders` (`supplierId`, `minimarketId`), `GET /api/v1/shipment-orders/{shipmentOrderId}`, `POST /api/v1/shipment-orders/{shipmentOrderId}/acceptances`, `POST /api/v1/shipment-orders/{shipmentOrderId}/rejections` |
+| Conservation    | `POST/GET /api/v1/storage-zones`, `GET /api/v1/storage-zones/{storageZoneId}`, `POST/GET /api/v1/storage-readings` (`storageZoneId`), `GET /api/v1/storage-readings/{storageReadingId}` |
+| Communication   | `POST/GET /api/v1/notifications`, `GET /api/v1/notifications/{notificationId}`, `POST /api/v1/notifications/{notificationId}/readings` |
+| Dashboard       | `GET /api/v1/dashboard` (`minimarketId`, optional `userId` to use the expiration warning days of that user profile) |
+| Analytics       | `GET /api/v1/operational-indicators` (`minimarketId`), `GET /api/v1/activity-records` (`minimarketId`), `GET /api/v1/activity-records/{activityRecordId}` |
+
+## Architecture & Development Conventions
+
+- **Pure domain**: aggregates extend `AbstractDomainAggregateRoot`, are rebuilt with `reconstitute(...)` and never carry JPA annotations.
+- **Repository ports and adapters**: each aggregate has a domain `Repository` port and an infrastructure `RepositoryImpl` adapter that maps through a `PersistenceAssembler` to a `PersistenceEntity`.
+- **CQRS**: command services return `Result<Long, ApplicationError>`; query services return `Optional` or `List`.
+- **Errors**: failures are returned as RFC 9457 `ProblemDetail` with a `code`, localized in English (default) or Spanish through `Accept-Language`.
+- **Naming**: tables are snake_case and plural; value objects are stored with `PersistenceConverter` classes.
+- **Git**: GitFlow with Conventional Commits.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE.md](LICENSE.md).

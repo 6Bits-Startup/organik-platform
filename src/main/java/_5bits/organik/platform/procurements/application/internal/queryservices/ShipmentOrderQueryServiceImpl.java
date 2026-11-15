@@ -5,15 +5,16 @@ import _5bits.organik.platform.procurements.domain.model.aggregates.ShipmentOrde
 import _5bits.organik.platform.procurements.domain.model.queries.GetShipmentOrderByIdQuery;
 import _5bits.organik.platform.procurements.domain.model.queries.GetShipmentOrdersByMinimarketIdQuery;
 import _5bits.organik.platform.procurements.domain.model.queries.GetShipmentOrdersBySupplierIdQuery;
-import _5bits.organik.platform.procurements.infrastructure.persistence.jpa.ShipmentOrderRepository;
+import _5bits.organik.platform.procurements.domain.repositories.ShipmentOrderRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Application service that handles ShipmentOrder queries.
+ */
 @Service
-@Transactional(readOnly = true)
 public class ShipmentOrderQueryServiceImpl implements ShipmentOrderQueryService {
     private final ShipmentOrderRepository shipmentOrderRepository;
 

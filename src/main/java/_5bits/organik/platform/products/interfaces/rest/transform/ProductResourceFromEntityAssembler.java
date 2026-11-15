@@ -3,6 +3,10 @@ package _5bits.organik.platform.products.interfaces.rest.transform;
 import _5bits.organik.platform.products.domain.model.aggregates.Product;
 import _5bits.organik.platform.products.interfaces.rest.resources.ProductResource;
 
+
+/**
+ * Assembler that converts a {@link Product} aggregate into a {@link ProductResource}.
+ */
 public class ProductResourceFromEntityAssembler {
     public static ProductResource toResourceFromEntity(Product entity) {
         return new ProductResource(

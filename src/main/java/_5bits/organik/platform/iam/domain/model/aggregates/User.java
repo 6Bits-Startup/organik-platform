@@ -1,75 +1,75 @@
 package _5bits.organik.platform.iam.domain.model.aggregates;
 
-import _5bits.organik.platform.iam.domain.model.commands.CreateUserCommand;
-import _5bits.organik.platform.iam.domain.model.valueobjects.EmailAddress;
-import _5bits.organik.platform.iam.domain.model.valueobjects.FullName;
-import _5bits.organik.platform.iam.domain.model.valueobjects.MinimarketId;
-import _5bits.organik.platform.iam.domain.model.valueobjects.Role;
-import _5bits.organik.platform.iam.domain.model.valueobjects.SupplierId;
-import _5bits.organik.platform.iam.domain.model.valueobjects.UserStatus;
-import _5bits.organik.platform.iam.infrastructure.persistence.jpa.converters.EmailAddressAttributeConverter;
-import _5bits.organik.platform.iam.infrastructure.persistence.jpa.converters.FullNameAttributeConverter;
-import _5bits.organik.platform.iam.infrastructure.persistence.jpa.converters.MinimarketIdAttributeConverter;
-import _5bits.organik.platform.iam.infrastructure.persistence.jpa.converters.SupplierIdAttributeConverter;
-import jakarta.persistence.*;
+import _5bits.organik.platform.iam.domain.model.entities.Role;
+import _5bits.organik.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
+/**
+ * User aggregate root.
+ */
 @Getter
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "email" }, name = User.EMAIL_UNIQUE_CONSTRAINT)
-})
-public class User {
-    public static final String EMAIL_UNIQUE_CONSTRAINT = "uk_email";
+public class User extends AbstractDomainAggregateRoot<User> {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private String username;
+    private String password;
+    private Set<Role> roles;
 
-    @Column(nullable = false)
-    @Convert(converter = FullNameAttributeConverter.class)
-    private FullName fullName;
+    public User() {
+        this.roles = new HashSet<>();
+    }
 
-    @Column(nullable = false)
-    @Convert(converter = EmailAddressAttributeConverter.class)
-    private EmailAddress email;
+    public User(String username, String password) {
+        this.username = username;
+        this.password = password;
+        this.roles = new HashSet<>();
+    }
 
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private Role role;
+    public User(String username, String password, List<Role> roles) {
+        this(username, password);
+        addRoles(roles);
+    }
 
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private UserStatus status;
+    /**
+     * Reconstitutes an existing user from the persistence state.
+     *
+     * @param id The unique identifier.
+     * @param username The username.
+     * @param password The encoded password.
+     * @param roles The assigned roles.
+     * @return The reconstituted User instance.
+     */
+    public static User reconstitute(Long id, String username, String password, Set<Role> roles) {
+        var user = new User(username, password);
+        user.id = id;
+        user.roles = roles != null ? new HashSet<>(roles) : new HashSet<>();
+        return user;
+    }
 
-    @Convert(converter = MinimarketIdAttributeConverter.class)
-    private MinimarketId minimarketId;
+    /**
+     * Add a role to the user.
+     *
+     * @param role the role to add
+     * @return the user with the added role
+     */
+    public User addRole(Role role) {
+        this.roles.add(role);
+        return this;
+    }
 
-    @Convert(converter = SupplierIdAttributeConverter.class)
-    private SupplierId supplierId;
-
-    @Column(nullable = false, updatable = false)
-    @CreatedDate
-    private Instant createdAt;
-
-    @Column(nullable = false)
-    @LastModifiedDate
-    private Instant updatedAt;
-
-    protected User() {}
-
-    public User(CreateUserCommand command) {
-        this.fullName = command.fullName();
-        this.email = command.email();
-        this.role = command.role();
-        this.status = UserStatus.PENDING;
-        this.minimarketId = command.minimarketId();
-        this.supplierId = command.supplierId();
+    /**
+     * Add a list of roles to the user.
+     *
+     * @param roles the list of roles to add
+     * @return the user with the added roles
+     */
+    public User addRoles(List<Role> roles) {
+        var validatedRoleSet = Role.validateRoleSet(roles);
+        this.roles.addAll(validatedRoleSet);
+        return this;
     }
 }

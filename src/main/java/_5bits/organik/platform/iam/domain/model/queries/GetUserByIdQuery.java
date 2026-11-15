@@ -1,7 +1,11 @@
 package _5bits.organik.platform.iam.domain.model.queries;
 
-public record GetUserByIdQuery(Long id) {
-    public GetUserByIdQuery {
-        if (id == null || id <= 0) throw new IllegalArgumentException("user.error.id.invalid");
-    }
+/**
+ * Get user by id query
+ * <p>
+ *     This class represents the query to get a user by its id.
+ * </p>
+ * @param userId the id of the user
+ */
+public record GetUserByIdQuery(Long userId) {
 }

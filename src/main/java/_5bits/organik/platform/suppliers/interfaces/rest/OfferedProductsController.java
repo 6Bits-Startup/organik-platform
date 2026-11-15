@@ -1,16 +1,21 @@
 package _5bits.organik.platform.suppliers.interfaces.rest;
 
+import _5bits.organik.platform.shared.application.result.ApplicationError;
+import _5bits.organik.platform.shared.application.result.Result;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ProblemDetailFromApplicationErrorAssembler;
+import _5bits.organik.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import _5bits.organik.platform.suppliers.application.commandservices.OfferedProductCommandService;
 import _5bits.organik.platform.suppliers.application.queryservices.OfferedProductQueryService;
 import _5bits.organik.platform.suppliers.domain.model.aggregates.OfferedProduct;
 import _5bits.organik.platform.suppliers.domain.model.queries.GetAllOfferedProductsBySupplierIdQuery;
 import _5bits.organik.platform.suppliers.domain.model.queries.GetOfferedProductByIdQuery;
+import _5bits.organik.platform.suppliers.domain.model.valueobjects.SupplierId;
 import _5bits.organik.platform.suppliers.interfaces.rest.resources.CreateOfferedProductResource;
 import _5bits.organik.platform.suppliers.interfaces.rest.resources.OfferedProductResource;
+import _5bits.organik.platform.suppliers.interfaces.rest.resources.UpdateOfferedProductResource;
 import _5bits.organik.platform.suppliers.interfaces.rest.transform.CreateOfferedProductCommandFromResourceAssembler;
-import _5bits.organik.platform.suppliers.interfaces.rest.transform.ResponseEntityFromOfferedProductCommandResultAssembler;
-import _5bits.organik.platform.suppliers.interfaces.rest.transform.ResponseEntityFromOfferedProductQueryResultAssembler;
-import _5bits.organik.platform.suppliers.interfaces.rest.transform.SuppliersValueObjectFromStringAssembler;
+import _5bits.organik.platform.suppliers.interfaces.rest.transform.OfferedProductResourceFromEntityAssembler;
+import _5bits.organik.platform.suppliers.interfaces.rest.transform.UpdateOfferedProductCommandFromResourceAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,123 +24,115 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.http.ProblemDetail;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
-import java.util.regex.Pattern;
-
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
-@Slf4j
+/**
+ * REST controller that exposes offered product endpoints.
+ */
 @RestController
 @RequestMapping(value = "/api/v1/offered-products", produces = APPLICATION_JSON_VALUE)
-@Tag(name = "Offered Products", description = "Endpoints for products offered by suppliers")
+@Tag(name = "Offered Products", description = "Supplier catalog management endpoints")
 public class OfferedProductsController {
-    private static final int MAX_QUERY_PARAM_LENGTH = 256;
-    private static final Pattern ID_QUERY_PARAM_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
-
     private final OfferedProductCommandService offeredProductCommandService;
     private final OfferedProductQueryService offeredProductQueryService;
-    private final MessageSource messageSource;
 
-    public OfferedProductsController(OfferedProductCommandService offeredProductCommandService, OfferedProductQueryService offeredProductQueryService, MessageSource messageSource) {
+    public OfferedProductsController(OfferedProductCommandService offeredProductCommandService, OfferedProductQueryService offeredProductQueryService) {
         this.offeredProductCommandService = offeredProductCommandService;
         this.offeredProductQueryService = offeredProductQueryService;
-        this.messageSource = messageSource;
     }
 
-    @Operation(
-            summary = "Register an offered product",
-            description = "Registers a product lot offered by a supplier with its available quantity and expiration date",
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Offered product creation request",
-                    content = @Content(schema = @Schema(implementation = CreateOfferedProductResource.class))))
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Offered product created",
-                    content = @Content(schema = @Schema(implementation = OfferedProductResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "409", description = "Conflict - the supplier already registered this lot",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @PostMapping
+    @Operation(summary = "Publish an offered product", description = "Publishes a product lot in the catalog of a supplier.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Offered product created successfully",
+                    content = @Content(schema = @Schema(implementation = OfferedProductResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "409", description = "Conflict - resource already exists"),
+            @ApiResponse(responseCode = "404", description = "Referenced resource not found")
+    })
     public ResponseEntity<?> createOfferedProduct(@Valid @RequestBody CreateOfferedProductResource resource) {
-        log.debug("POST /api/v1/offered-products – supplierId={}, lotCode={}", resource.supplierId(), resource.lotCode());
-        var offeredProduct = offeredProductCommandService
-                .handle(CreateOfferedProductCommandFromResourceAssembler.toCommandFromResource(resource));
-        var response = ResponseEntityFromOfferedProductCommandResultAssembler.toResponseEntityFromResult(offeredProduct, messageSource);
-        log.debug("POST /api/v1/offered-products – response status={}", response.getStatusCode());
-        return response;
+        var command = CreateOfferedProductCommandFromResourceAssembler.toCommandFromResource(resource);
+        var result = offeredProductCommandService.handle(command)
+                .flatMap(offeredProductId -> offeredProductQueryService.handle(new GetOfferedProductByIdQuery(offeredProductId))
+                        .<Result<OfferedProduct, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("OfferedProduct", offeredProductId.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                OfferedProductResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
     }
 
-    @Operation(
-            summary = "Get an offered product by ID",
-            description = "Gets an offered product by the provided ID")
+    @GetMapping("/{offeredProductId}")
+    @Operation(summary = "Get offered product by ID", description = "Retrieves a specific offered product by its unique identifier.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Offered product found",
                     content = @Content(schema = @Schema(implementation = OfferedProductResource.class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
-            @ApiResponse(responseCode = "404", description = "Offered product not found",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(responseCode = "404", description = "Offered product not found")
     })
-    @GetMapping("{id}")
-    public ResponseEntity<?> getOfferedProductById(@PathVariable Long id) {
-        log.debug("GET /api/v1/offered-products/{}", id);
-        if (id == null || id <= 0) {
-            return ResponseEntityFromOfferedProductQueryResultAssembler.badRequest(
-                    messageSource,
-                    "offeredProduct.error.id.invalid");
-        }
-        Optional<OfferedProduct> offeredProduct = offeredProductQueryService.handle(new GetOfferedProductByIdQuery(id));
+    public ResponseEntity<?> getOfferedProductById(
+            @PathVariable
+            @Parameter(description = "Offered product unique identifier", example = "1", required = true)
+            Long offeredProductId
+    ) {
+        var offeredProduct = offeredProductQueryService.handle(new GetOfferedProductByIdQuery(offeredProductId));
         if (offeredProduct.isEmpty()) {
-            log.debug("Offered product not found for id={}", id);
-            return ResponseEntityFromOfferedProductQueryResultAssembler.notFound(
-                    messageSource,
-                    "offeredProduct.error.notFoundById",
-                    id);
+            var error = ApplicationError.notFound("OfferedProduct", offeredProductId.toString());
+            return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
         }
-        return ResponseEntityFromOfferedProductQueryResultAssembler.toResponseEntityFromOfferedProduct(offeredProduct.orElseThrow());
+        return ResponseEntity.ok(OfferedProductResourceFromEntityAssembler.toResourceFromEntity(offeredProduct.get()));
     }
 
-    @Operation(
-            summary = "Get the offered products of a supplier",
-            description = "Gets every product lot offered by the provided supplier")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Offered products found",
-                    content = @Content(schema = @Schema(implementation = OfferedProductResource[].class))),
-            @ApiResponse(responseCode = "400", description = "Bad request",
-                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
-    })
     @GetMapping
-    public ResponseEntity<?> getOfferedProductsBySupplierId(
-            @Parameter(name = "supplierId", description = "Supplier ID", required = true,
-                    schema = @Schema(maxLength = 256, pattern = "^[a-zA-Z0-9_-]+$"))
-            @RequestParam(name = "supplierId", required = false) String supplierId) {
-        if (supplierId == null || supplierId.isBlank()) {
-            log.warn("GET /api/v1/offered-products – missing or blank required parameter: supplierId");
-            return ResponseEntityFromOfferedProductQueryResultAssembler.badRequest(
-                    messageSource,
-                    "offeredProduct.error.query.missing");
+    @Operation(summary = "Get offered products", description = "Retrieves the offered products filtered by supplierId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Offered products retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = OfferedProductResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
+    })
+    public ResponseEntity<?> getOfferedProducts(
+            @RequestParam(required = false)
+            @Parameter(description = "Supplier identifier", example = "sup-bioandes")
+            String supplierId
+    ) {
+        if (supplierId != null) {
+            var offeredProducts = offeredProductQueryService.handle(new GetAllOfferedProductsBySupplierIdQuery(new SupplierId(supplierId)));
+            return ResponseEntity.ok(offeredProducts.stream().map(OfferedProductResourceFromEntityAssembler::toResourceFromEntity).toList());
         }
-        if (isInvalidQueryParam(supplierId)) {
-            log.warn("Rejected invalid query param supplierId");
-            return ResponseEntityFromOfferedProductQueryResultAssembler.badRequest(
-                    messageSource,
-                    "offeredProduct.error.supplierId.invalid");
-        }
-        log.debug("GET /api/v1/offered-products?supplierId={}", supplierId);
-        var offeredProducts = offeredProductQueryService.handle(new GetAllOfferedProductsBySupplierIdQuery(
-                SuppliersValueObjectFromStringAssembler.toSupplierIdFromString(supplierId)));
-        return ResponseEntityFromOfferedProductQueryResultAssembler.toResponseEntityFromList(offeredProducts);
+        var error = ApplicationError.validationError("supplierId", "Query parameter supplierId is required");
+        return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
     }
 
-    private boolean isInvalidQueryParam(String value) {
-        return value.length() > MAX_QUERY_PARAM_LENGTH || !ID_QUERY_PARAM_PATTERN.matcher(value).matches();
+    @PutMapping("/{offeredProductId}")
+    @Operation(summary = "Update offered product", description = "Updates the lot, the availability and the expiration date of an offered product.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Offered product updated successfully",
+                    content = @Content(schema = @Schema(implementation = OfferedProductResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "404", description = "Offered product not found"),
+            @ApiResponse(responseCode = "409", description = "Conflict - lot code already offered by the supplier")
+    })
+    public ResponseEntity<?> updateOfferedProduct(
+            @PathVariable
+            @Parameter(description = "Offered product unique identifier", example = "1", required = true)
+            Long offeredProductId,
+            @Valid @RequestBody UpdateOfferedProductResource resource
+    ) {
+        var command = UpdateOfferedProductCommandFromResourceAssembler.toCommandFromResource(offeredProductId, resource);
+        var result = offeredProductCommandService.handle(command)
+                .flatMap(id -> offeredProductQueryService.handle(new GetOfferedProductByIdQuery(id))
+                        .<Result<OfferedProduct, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("OfferedProduct", id.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                OfferedProductResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.OK
+        );
     }
 }
