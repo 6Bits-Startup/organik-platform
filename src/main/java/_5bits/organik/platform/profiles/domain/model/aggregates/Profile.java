@@ -11,7 +11,8 @@ import java.util.Objects;
  * Profile aggregate root.
  * <p>
  * Personal information of an IAM user (name, email, minimarket or supplier) and the preferences
- * used by the web application (language and expiration alert thresholds).
+ * used by the web application (language and expiration alert thresholds). The expiration
+ * thresholds are the same for every profile of a minimarket.
  * </p>
  */
 @Getter
@@ -59,6 +60,20 @@ public class Profile extends AbstractDomainAggregateRoot<Profile> {
      */
     public Profile updatePreferences(Preferences preferences) {
         this.preferences = Objects.requireNonNull(preferences, "preferences must not be null");
+        return this;
+    }
+
+    /**
+     * Adopts the expiration thresholds of its minimarket and keeps its own language.
+     * A minimarket handles a single expiration policy, whoever of its users looks at the stock.
+     *
+     * @param minimarketPreferences preferences that hold the thresholds of the minimarket
+     * @return the updated profile
+     */
+    public Profile adoptExpirationThresholds(Preferences minimarketPreferences) {
+        Objects.requireNonNull(minimarketPreferences, "minimarketPreferences must not be null");
+        this.preferences = new Preferences(preferences.language(),
+                minimarketPreferences.warningExpirationDays(), minimarketPreferences.criticalExpirationDays());
         return this;
     }
 }

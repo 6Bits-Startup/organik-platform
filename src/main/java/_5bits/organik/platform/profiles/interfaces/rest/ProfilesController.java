@@ -119,7 +119,7 @@ public class ProfilesController {
     }
 
     @PutMapping("/{profileId}/preferences")
-    @Operation(summary = "Update profile preferences", description = "Updates the language and the expiration alert thresholds of a profile.")
+    @Operation(summary = "Update profile preferences", description = "Updates the language of a profile and the expiration alert thresholds of its minimarket, shared by every profile of that minimarket.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Preferences updated successfully",
                     content = @Content(schema = @Schema(implementation = ProfileResource.class))),

@@ -12,6 +12,11 @@ import org.springframework.stereotype.Service;
 
 /**
  * Application service that handles Profile commands.
+ * <p>
+ * A minimarket handles a single expiration policy: a new profile of a minimarket adopts the
+ * thresholds of its colleagues, and updating them in one profile updates every profile of the
+ * same minimarket.
+ * </p>
  */
 @Service
 public class ProfileCommandServiceImpl implements ProfileCommandService {
@@ -32,12 +37,15 @@ public class ProfileCommandServiceImpl implements ProfileCommandService {
         if (profileRepository.existsByEmail(command.email()))
             return Result.failure(ApplicationError.conflict("Profile", "Email '%s' already exists".formatted(command.email().value())));
         var profile = new Profile(command);
+        if (command.minimarketId() != null)
+            profileRepository.findAllByMinimarketId(command.minimarketId()).stream().findFirst()
+                    .ifPresent(colleague -> profile.adoptExpirationThresholds(colleague.getPreferences()));
         try {
-            profile = profileRepository.save(profile);
+            var createdProfile = profileRepository.save(profile);
+            return Result.success(createdProfile.getId());
         } catch (Exception e) {
             return Result.failure(ApplicationError.unexpected("create-profile", e.getMessage()));
         }
-        return Result.success(profile.getId());
     }
 
     @Override
@@ -47,6 +55,10 @@ public class ProfileCommandServiceImpl implements ProfileCommandService {
             return Result.failure(ApplicationError.notFound("Profile", command.profileId().toString()));
         try {
             var updatedProfile = profileRepository.save(result.get().updatePreferences(command.preferences()));
+            if (updatedProfile.getMinimarketId() != null)
+                profileRepository.findAllByMinimarketId(updatedProfile.getMinimarketId()).stream()
+                        .filter(colleague -> !colleague.getId().equals(updatedProfile.getId()))
+                        .forEach(colleague -> profileRepository.save(colleague.adoptExpirationThresholds(updatedProfile.getPreferences())));
             return Result.success(updatedProfile.getId());
         } catch (Exception e) {
             return Result.failure(ApplicationError.unexpected("update-profile-preferences", e.getMessage()));
