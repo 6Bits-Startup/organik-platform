@@ -1,0 +1,20 @@
+package _5bits.organik.platform.communication.interfaces.rest.transform;
+
+import _5bits.organik.platform.communication.domain.model.aggregates.Notification;
+import _5bits.organik.platform.communication.interfaces.rest.resources.NotificationResource;
+
+/**
+ * Assembler that converts a {@link Notification} aggregate into a {@link NotificationResource}.
+ */
+public class NotificationResourceFromEntityAssembler {
+    public static NotificationResource toResourceFromEntity(Notification entity) {
+        return new NotificationResource(
+                entity.getId(),
+                entity.getMinimarketId().value(),
+                entity.getType().value(),
+                entity.getSeverity().value(),
+                entity.getTitle().value(),
+                entity.isAlreadyRead(),
+                entity.getCreatedAt());
+    }
+}
