@@ -1,6 +1,7 @@
 package _5bits.organik.platform.conservation.application.queryservices;
 
 import _5bits.organik.platform.conservation.domain.model.aggregates.StorageZone;
+import _5bits.organik.platform.conservation.domain.model.queries.GetAllStorageZonesByMinimarketIdQuery;
 import _5bits.organik.platform.conservation.domain.model.queries.GetAllStorageZonesQuery;
 import _5bits.organik.platform.conservation.domain.model.queries.GetStorageZoneByIdQuery;
 
@@ -27,4 +28,12 @@ public interface StorageZoneQueryService {
      * @return the query result
      */
     List<StorageZone> handle(GetAllStorageZonesQuery query);
+
+    /**
+     * Handles the {@link GetAllStorageZonesByMinimarketIdQuery} query.
+     *
+     * @param query query object
+     * @return the query result
+     */
+    List<StorageZone> handle(GetAllStorageZonesByMinimarketIdQuery query);
 }

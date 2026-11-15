@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record StorageZoneResource(
     @Schema(description = "Storage zone unique identifier", example = "1")
     Long id,
+    @Schema(description = "Minimarket that owns the storage zone", example = "mm-vida-verde")
+    String minimarketId,
     @Schema(description = "Name of the storage zone", example = "Cold room A")
     String name,
     @Schema(description = "Storage condition of the zone", example = "REFRIGERATED")

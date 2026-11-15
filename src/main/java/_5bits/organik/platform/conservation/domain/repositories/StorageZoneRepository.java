@@ -1,6 +1,7 @@
 package _5bits.organik.platform.conservation.domain.repositories;
 
 import _5bits.organik.platform.conservation.domain.model.aggregates.StorageZone;
+import _5bits.organik.platform.conservation.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.ZoneName;
 
 import java.util.List;
@@ -19,7 +20,9 @@ public interface StorageZoneRepository {
 
     List<StorageZone> findAll();
 
-    boolean existsByName(ZoneName name);
+    List<StorageZone> findAllByMinimarketId(MinimarketId minimarketId);
+
+    boolean existsByMinimarketIdAndName(MinimarketId minimarketId, ZoneName name);
 
     StorageZone save(StorageZone storageZone);
 

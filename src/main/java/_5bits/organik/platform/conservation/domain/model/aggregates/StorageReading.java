@@ -3,6 +3,7 @@ package _5bits.organik.platform.conservation.domain.model.aggregates;
 import _5bits.organik.platform.conservation.domain.model.commands.RecordStorageReadingCommand;
 import _5bits.organik.platform.conservation.domain.model.events.StorageReadingOutOfRangeEvent;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.Humidity;
+import _5bits.organik.platform.conservation.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.ReadingSource;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.StorageZoneId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.Temperature;
@@ -15,22 +16,24 @@ import java.util.Objects;
 /**
  * Storage reading aggregate root.
  * <p>
- * A temperature and humidity measurement taken in a storage zone, by a sensor or manually.
+ * A temperature and humidity measurement taken in a storage zone of a minimarket, by a sensor or manually.
  * </p>
  */
 @Getter
 public class StorageReading extends AbstractDomainAggregateRoot<StorageReading> {
     private Long id;
     private StorageZoneId storageZoneId;
+    private MinimarketId minimarketId;
     private Temperature temperature;
     private Humidity humidity;
     private LocalDateTime recordedAt;
     private ReadingSource source;
     private Boolean withinRange;
 
-    public StorageReading(StorageZoneId storageZoneId, Temperature temperature, Humidity humidity,
+    public StorageReading(StorageZoneId storageZoneId, MinimarketId minimarketId, Temperature temperature, Humidity humidity,
                           LocalDateTime recordedAt, ReadingSource source, Boolean withinRange) {
         this.storageZoneId = Objects.requireNonNull(storageZoneId, "storageZoneId must not be null");
+        this.minimarketId = Objects.requireNonNull(minimarketId, "minimarketId must not be null");
         this.temperature = Objects.requireNonNull(temperature, "temperature must not be null");
         this.humidity = Objects.requireNonNull(humidity, "humidity must not be null");
         this.recordedAt = Objects.requireNonNull(recordedAt, "recordedAt must not be null");
@@ -45,13 +48,13 @@ public class StorageReading extends AbstractDomainAggregateRoot<StorageReading> 
      * @param storageZone storage zone where the reading was taken
      */
     public StorageReading(RecordStorageReadingCommand command, StorageZone storageZone) {
-        this(command.storageZoneId(), command.temperature(), command.humidity(), command.recordedAt(), command.source(),
+        this(command.storageZoneId(), storageZone.getMinimarketId(), command.temperature(), command.humidity(), command.recordedAt(), command.source(),
                 storageZone.isReadingWithinRange(command.temperature(), command.humidity()));
     }
 
-    public static StorageReading reconstitute(Long id, StorageZoneId storageZoneId, Temperature temperature, Humidity humidity,
-                                              LocalDateTime recordedAt, ReadingSource source, Boolean withinRange) {
-        var storageReading = new StorageReading(storageZoneId, temperature, humidity, recordedAt, source, withinRange);
+    public static StorageReading reconstitute(Long id, StorageZoneId storageZoneId, MinimarketId minimarketId, Temperature temperature,
+                                              Humidity humidity, LocalDateTime recordedAt, ReadingSource source, Boolean withinRange) {
+        var storageReading = new StorageReading(storageZoneId, minimarketId, temperature, humidity, recordedAt, source, withinRange);
         storageReading.id = id;
         return storageReading;
     }
@@ -62,7 +65,7 @@ public class StorageReading extends AbstractDomainAggregateRoot<StorageReading> 
     public void onRecorded() {
         if (!Boolean.TRUE.equals(withinRange)) {
             registerDomainEvent(new StorageReadingOutOfRangeEvent(
-                    id, storageZoneId.value(), temperature.value(), humidity.value(), recordedAt));
+                    id, storageZoneId.value(), minimarketId.value(), temperature.value(), humidity.value(), recordedAt));
         }
     }
 }

@@ -2,6 +2,7 @@ package _5bits.organik.platform.conservation.application.internal.queryservices;
 
 import _5bits.organik.platform.conservation.application.queryservices.StorageZoneQueryService;
 import _5bits.organik.platform.conservation.domain.model.aggregates.StorageZone;
+import _5bits.organik.platform.conservation.domain.model.queries.GetAllStorageZonesByMinimarketIdQuery;
 import _5bits.organik.platform.conservation.domain.model.queries.GetAllStorageZonesQuery;
 import _5bits.organik.platform.conservation.domain.model.queries.GetStorageZoneByIdQuery;
 import _5bits.organik.platform.conservation.domain.repositories.StorageZoneRepository;
@@ -29,5 +30,10 @@ public class StorageZoneQueryServiceImpl implements StorageZoneQueryService {
     @Override
     public List<StorageZone> handle(GetAllStorageZonesQuery query) {
         return storageZoneRepository.findAll();
+    }
+
+    @Override
+    public List<StorageZone> handle(GetAllStorageZonesByMinimarketIdQuery query) {
+        return storageZoneRepository.findAllByMinimarketId(query.minimarketId());
     }
 }

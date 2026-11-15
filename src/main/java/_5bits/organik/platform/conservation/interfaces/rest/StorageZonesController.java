@@ -3,8 +3,9 @@ package _5bits.organik.platform.conservation.interfaces.rest;
 import _5bits.organik.platform.conservation.application.commandservices.StorageZoneCommandService;
 import _5bits.organik.platform.conservation.application.queryservices.StorageZoneQueryService;
 import _5bits.organik.platform.conservation.domain.model.aggregates.StorageZone;
-import _5bits.organik.platform.conservation.domain.model.queries.GetAllStorageZonesQuery;
+import _5bits.organik.platform.conservation.domain.model.queries.GetAllStorageZonesByMinimarketIdQuery;
 import _5bits.organik.platform.conservation.domain.model.queries.GetStorageZoneByIdQuery;
+import _5bits.organik.platform.conservation.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.conservation.interfaces.rest.resources.CreateStorageZoneResource;
 import _5bits.organik.platform.conservation.interfaces.rest.resources.StorageZoneResource;
 import _5bits.organik.platform.conservation.interfaces.rest.transform.CreateStorageZoneCommandFromResourceAssembler;
@@ -25,7 +26,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -88,16 +88,22 @@ public class StorageZonesController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all storage zones", description = "Retrieves every storage zone.")
+    @Operation(summary = "Get storage zones", description = "Retrieves the storage zones filtered by minimarketId.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Storage zones retrieved successfully",
-                    content = @Content(schema = @Schema(implementation = StorageZoneResource.class)))
+                    content = @Content(schema = @Schema(implementation = StorageZoneResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
     })
-    public ResponseEntity<List<StorageZoneResource>> getAllStorageZones() {
-        var storageZones = storageZoneQueryService.handle(new GetAllStorageZonesQuery());
-        var resources = storageZones.stream()
-                .map(StorageZoneResourceFromEntityAssembler::toResourceFromEntity)
-                .toList();
-        return ResponseEntity.ok(resources);
+    public ResponseEntity<?> getStorageZones(
+            @RequestParam(required = false)
+            @Parameter(description = "Minimarket identifier", example = "mm-vida-verde")
+            String minimarketId
+    ) {
+        if (minimarketId != null) {
+            var storageZones = storageZoneQueryService.handle(new GetAllStorageZonesByMinimarketIdQuery(new MinimarketId(minimarketId)));
+            return ResponseEntity.ok(storageZones.stream().map(StorageZoneResourceFromEntityAssembler::toResourceFromEntity).toList());
+        }
+        var error = ApplicationError.validationError("minimarketId", "Query parameter minimarketId is required");
+        return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
     }
 }

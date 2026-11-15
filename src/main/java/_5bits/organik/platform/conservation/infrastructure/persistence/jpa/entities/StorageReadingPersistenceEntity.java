@@ -1,10 +1,12 @@
 package _5bits.organik.platform.conservation.infrastructure.persistence.jpa.entities;
 
 import _5bits.organik.platform.conservation.domain.model.valueobjects.Humidity;
+import _5bits.organik.platform.conservation.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.ReadingSource;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.StorageZoneId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.Temperature;
 import _5bits.organik.platform.conservation.infrastructure.persistence.jpa.converters.HumidityPersistenceConverter;
+import _5bits.organik.platform.conservation.infrastructure.persistence.jpa.converters.MinimarketIdPersistenceConverter;
 import _5bits.organik.platform.conservation.infrastructure.persistence.jpa.converters.ReadingSourcePersistenceConverter;
 import _5bits.organik.platform.conservation.infrastructure.persistence.jpa.converters.StorageZoneIdPersistenceConverter;
 import _5bits.organik.platform.conservation.infrastructure.persistence.jpa.converters.TemperaturePersistenceConverter;
@@ -33,6 +35,10 @@ public class StorageReadingPersistenceEntity extends AuditableAbstractPersistenc
     @Convert(converter = StorageZoneIdPersistenceConverter.class)
     @Column(name = "storage_zone_id", nullable = false)
     private StorageZoneId storageZoneId;
+
+    @Convert(converter = MinimarketIdPersistenceConverter.class)
+    @Column(name = "minimarket_id", nullable = false)
+    private MinimarketId minimarketId;
 
     @Convert(converter = TemperaturePersistenceConverter.class)
     @Column(name = "temperature", nullable = false)

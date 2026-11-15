@@ -24,6 +24,7 @@ public final class StorageZonePersistenceAssembler {
         if (entity == null) return null;
         return StorageZone.reconstitute(
                 entity.getId(),
+                entity.getMinimarketId(),
                 entity.getName(),
                 entity.getStorageCondition(),
                 toDomainFromPersistence(entity.getTemperatureRange()),
@@ -36,6 +37,7 @@ public final class StorageZonePersistenceAssembler {
         if (storageZone.getId() != null) {
             entity.setId(storageZone.getId());
         }
+        entity.setMinimarketId(storageZone.getMinimarketId());
         entity.setName(storageZone.getName());
         entity.setStorageCondition(storageZone.getStorageCondition());
         entity.setTemperatureRange(toPersistenceFromDomain(storageZone.getTemperatureRange()));

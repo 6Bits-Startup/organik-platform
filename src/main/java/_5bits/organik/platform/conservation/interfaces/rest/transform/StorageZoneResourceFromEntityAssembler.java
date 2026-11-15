@@ -11,6 +11,7 @@ public class StorageZoneResourceFromEntityAssembler {
     public static StorageZoneResource toResourceFromEntity(StorageZone entity) {
         return new StorageZoneResource(
                 entity.getId(),
+                entity.getMinimarketId().value(),
                 entity.getName().value(),
                 entity.getStorageCondition().value(),
                 entity.getTemperatureRange().min().value(),

@@ -21,8 +21,9 @@ public class StorageZoneCommandServiceImpl implements StorageZoneCommandService 
 
     @Override
     public Result<Long, ApplicationError> handle(CreateStorageZoneCommand command) {
-        if (storageZoneRepository.existsByName(command.name()))
-            return Result.failure(ApplicationError.conflict("StorageZone", "Name '%s' already exists".formatted(command.name().value())));
+        if (storageZoneRepository.existsByMinimarketIdAndName(command.minimarketId(), command.name()))
+            return Result.failure(ApplicationError.conflict("StorageZone",
+                    "Name '%s' already exists in minimarket '%s'".formatted(command.name().value(), command.minimarketId().value())));
         var storageZone = new StorageZone(command);
         try {
             storageZone = storageZoneRepository.save(storageZone);

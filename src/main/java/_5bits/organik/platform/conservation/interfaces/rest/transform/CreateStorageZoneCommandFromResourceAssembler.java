@@ -10,6 +10,7 @@ import _5bits.organik.platform.conservation.domain.model.valueobjects.*;
 public class CreateStorageZoneCommandFromResourceAssembler {
     public static CreateStorageZoneCommand toCommandFromResource(CreateStorageZoneResource resource) {
         return new CreateStorageZoneCommand(
+                new MinimarketId(resource.minimarketId()),
                 new ZoneName(resource.name()),
                 new StorageCondition(resource.storageCondition()),
                 new TemperatureRange(new Temperature(resource.minTemperature()), new Temperature(resource.maxTemperature())),

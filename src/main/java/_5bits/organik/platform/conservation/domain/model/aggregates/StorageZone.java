@@ -10,19 +10,22 @@ import java.util.Objects;
 /**
  * Storage zone aggregate root.
  * <p>
- * A physical area of the minimarket (cold room, shelf, dry storage) with the temperature and
+ * A physical area of a minimarket (cold room, shelf, dry storage) with the temperature and
  * humidity ranges its products require.
  * </p>
  */
 @Getter
 public class StorageZone extends AbstractDomainAggregateRoot<StorageZone> {
     private Long id;
+    private MinimarketId minimarketId;
     private ZoneName name;
     private StorageCondition storageCondition;
     private TemperatureRange temperatureRange;
     private HumidityRange humidityRange;
 
-    public StorageZone(ZoneName name, StorageCondition storageCondition, TemperatureRange temperatureRange, HumidityRange humidityRange) {
+    public StorageZone(MinimarketId minimarketId, ZoneName name, StorageCondition storageCondition,
+                       TemperatureRange temperatureRange, HumidityRange humidityRange) {
+        this.minimarketId = Objects.requireNonNull(minimarketId, "minimarketId must not be null");
         this.name = Objects.requireNonNull(name, "name must not be null");
         this.storageCondition = Objects.requireNonNull(storageCondition, "storageCondition must not be null");
         this.temperatureRange = Objects.requireNonNull(temperatureRange, "temperatureRange must not be null");
@@ -30,12 +33,12 @@ public class StorageZone extends AbstractDomainAggregateRoot<StorageZone> {
     }
 
     public StorageZone(CreateStorageZoneCommand command) {
-        this(command.name(), command.condition(), command.temperatureRange(), command.humidityRange());
+        this(command.minimarketId(), command.name(), command.condition(), command.temperatureRange(), command.humidityRange());
     }
 
-    public static StorageZone reconstitute(Long id, ZoneName name, StorageCondition storageCondition,
+    public static StorageZone reconstitute(Long id, MinimarketId minimarketId, ZoneName name, StorageCondition storageCondition,
                                            TemperatureRange temperatureRange, HumidityRange humidityRange) {
-        var storageZone = new StorageZone(name, storageCondition, temperatureRange, humidityRange);
+        var storageZone = new StorageZone(minimarketId, name, storageCondition, temperatureRange, humidityRange);
         storageZone.id = id;
         return storageZone;
     }

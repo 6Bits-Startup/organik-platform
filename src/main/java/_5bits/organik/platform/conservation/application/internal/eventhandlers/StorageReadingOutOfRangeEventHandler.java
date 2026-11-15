@@ -23,6 +23,7 @@ public class StorageReadingOutOfRangeEventHandler {
         eventPublisher.publishEvent(new StorageReadingOutOfRangeIntegrationEvent(
                 event.storageReadingId(),
                 event.storageZoneId(),
+                event.minimarketId(),
                 event.temperature(),
                 event.humidity(),
                 event.recordedAt()));

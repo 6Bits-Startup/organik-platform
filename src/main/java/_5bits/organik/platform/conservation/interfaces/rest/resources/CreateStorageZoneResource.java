@@ -8,6 +8,11 @@ import jakarta.validation.constraints.*;
  */
 @Schema(name = "CreateStorageZoneRequest", description = "Request payload for creating a storage zone")
 public record CreateStorageZoneResource(
+    @Schema(description = "Minimarket that owns the storage zone", example = "mm-vida-verde")
+    @NotBlank(message = "{storageZone.error.minimarketId.notBlank}")
+    @Size(max = 256, message = "{storageZone.error.minimarketId.size}")
+    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "{storageZone.error.minimarketId.pattern}")
+    String minimarketId,
     @Schema(description = "Name of the storage zone", example = "Cold room A", maxLength = 100)
     @NotBlank(message = "{storageZone.error.name.notBlank}")
     @Size(max = 100, message = "{storageZone.error.name.size}")

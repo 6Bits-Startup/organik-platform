@@ -26,6 +26,7 @@ public final class StorageReadingPersistenceAssembler {
         return StorageReading.reconstitute(
                 entity.getId(),
                 entity.getStorageZoneId(),
+                entity.getMinimarketId(),
                 entity.getTemperature(),
                 entity.getHumidity(),
                 entity.getRecordedAt(),
@@ -46,6 +47,7 @@ public final class StorageReadingPersistenceAssembler {
             entity.setId(storageReading.getId());
         }
         entity.setStorageZoneId(storageReading.getStorageZoneId());
+        entity.setMinimarketId(storageReading.getMinimarketId());
         entity.setTemperature(storageReading.getTemperature());
         entity.setHumidity(storageReading.getHumidity());
         entity.setRecordedAt(storageReading.getRecordedAt());

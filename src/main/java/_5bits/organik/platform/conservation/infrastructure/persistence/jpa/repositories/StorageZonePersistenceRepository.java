@@ -1,5 +1,6 @@
 package _5bits.organik.platform.conservation.infrastructure.persistence.jpa.repositories;
 
+import _5bits.organik.platform.conservation.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.ZoneName;
 import _5bits.organik.platform.conservation.infrastructure.persistence.jpa.entities.StorageZonePersistenceEntity;
 import java.util.List;
@@ -16,5 +17,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface StorageZonePersistenceRepository extends JpaRepository<StorageZonePersistenceEntity, Long> {
 
-    boolean existsByName(ZoneName name);
+    List<StorageZonePersistenceEntity> findAllByMinimarketId(MinimarketId minimarketId);
+
+    boolean existsByMinimarketIdAndName(MinimarketId minimarketId, ZoneName name);
 }

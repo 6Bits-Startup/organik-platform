@@ -30,7 +30,7 @@ public class StorageReadingOutOfRangeEventHandler {
     @EventListener
     public void on(StorageReadingOutOfRangeIntegrationEvent event) {
         var command = new RegisterActivityRecordCommand(
-                null,
+                new MinimarketId(event.minimarketId()),
                 ActivityType.STORAGE_READING_OUT_OF_RANGE,
                 new ActivityDescription("Storage zone %d recorded %.1f °C and %.1f %% at %s".formatted(
                         event.storageZoneId(), event.temperature(), event.humidity(), event.recordedAt())));

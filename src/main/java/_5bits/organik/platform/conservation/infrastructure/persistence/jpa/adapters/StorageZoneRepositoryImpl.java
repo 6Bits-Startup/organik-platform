@@ -1,6 +1,7 @@
 package _5bits.organik.platform.conservation.infrastructure.persistence.jpa.adapters;
 
 import _5bits.organik.platform.conservation.domain.model.aggregates.StorageZone;
+import _5bits.organik.platform.conservation.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.conservation.domain.model.valueobjects.ZoneName;
 import _5bits.organik.platform.conservation.domain.repositories.StorageZoneRepository;
 import _5bits.organik.platform.conservation.infrastructure.persistence.jpa.assemblers.StorageZonePersistenceAssembler;
@@ -43,8 +44,15 @@ public class StorageZoneRepositoryImpl implements StorageZoneRepository {
     }
 
     @Override
-    public boolean existsByName(ZoneName name) {
-        return storageZonePersistenceRepository.existsByName(name);
+    public List<StorageZone> findAllByMinimarketId(MinimarketId minimarketId) {
+        return storageZonePersistenceRepository.findAllByMinimarketId(minimarketId).stream()
+                .map(StorageZonePersistenceAssembler::toDomainFromPersistence)
+                .toList();
+    }
+
+    @Override
+    public boolean existsByMinimarketIdAndName(MinimarketId minimarketId, ZoneName name) {
+        return storageZonePersistenceRepository.existsByMinimarketIdAndName(minimarketId, name);
     }
 
     @Override

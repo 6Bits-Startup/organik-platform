@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class StorageReadingTest {
 
-    private final StorageZone coldRoom = StorageZone.reconstitute(1L, new ZoneName("Cold room A"), new StorageCondition("REFRIGERATED"),
+    private final StorageZone coldRoom = StorageZone.reconstitute(1L, new MinimarketId("mm-vida-verde"), new ZoneName("Cold room A"), new StorageCondition("REFRIGERATED"),
             new TemperatureRange(new Temperature(2.0), new Temperature(8.0)),
             new HumidityRange(new Humidity(80.0), new Humidity(95.0)));
 
@@ -19,7 +19,7 @@ class StorageReadingTest {
         var command = new RecordStorageReadingCommand(new StorageZoneId(1L), new Temperature(temperature), new Humidity(85.0),
                 LocalDateTime.of(2026, 11, 14, 9, 30), new ReadingSource("MANUAL"));
         var reading = new StorageReading(command, coldRoom);
-        return StorageReading.reconstitute(10L, reading.getStorageZoneId(), reading.getTemperature(), reading.getHumidity(),
+        return StorageReading.reconstitute(10L, reading.getStorageZoneId(), reading.getMinimarketId(), reading.getTemperature(), reading.getHumidity(),
                 reading.getRecordedAt(), reading.getSource(), reading.getWithinRange());
     }
 
