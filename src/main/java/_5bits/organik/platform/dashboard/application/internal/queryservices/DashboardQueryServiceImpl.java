@@ -48,6 +48,6 @@ public class DashboardQueryServiceImpl implements DashboardQueryService {
                 externalInventoryService.countStockLotsExpiringWithinDays(minimarketId, expirationWarningDays),
                 externalProcurementsService.countPendingShipmentOrders(minimarketId),
                 externalRequisitionService.countPendingSupplyRequests(minimarketId),
-                externalCommunicationService.countUnreadNotifications());
+                externalCommunicationService.countUnreadNotifications(minimarketId));
     }
 }

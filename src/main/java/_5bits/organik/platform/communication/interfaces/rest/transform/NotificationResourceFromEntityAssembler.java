@@ -10,6 +10,7 @@ public class NotificationResourceFromEntityAssembler {
     public static NotificationResource toResourceFromEntity(Notification entity) {
         return new NotificationResource(
                 entity.getId(),
+                entity.getMinimarketId().value(),
                 entity.getType().value(),
                 entity.getSeverity().value(),
                 entity.getTitle().value(),

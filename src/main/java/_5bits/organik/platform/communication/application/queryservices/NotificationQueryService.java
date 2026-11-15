@@ -1,6 +1,7 @@
 package _5bits.organik.platform.communication.application.queryservices;
 
 import _5bits.organik.platform.communication.domain.model.aggregates.Notification;
+import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsByMinimarketIdQuery;
 import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsQuery;
 import _5bits.organik.platform.communication.domain.model.queries.GetNotificationByIdQuery;
 
@@ -19,6 +20,14 @@ public interface NotificationQueryService {
      * @return list of notifications, possibly empty
      */
     List<Notification> handle(GetAllNotificationsQuery query);
+
+    /**
+     * Retrieves the notifications of a minimarket.
+     *
+     * @param query query object
+     * @return list of notifications, possibly empty
+     */
+    List<Notification> handle(GetAllNotificationsByMinimarketIdQuery query);
 
     /**
      * Retrieves a notification by its identifier.

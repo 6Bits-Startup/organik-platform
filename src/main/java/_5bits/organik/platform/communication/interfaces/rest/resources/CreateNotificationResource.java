@@ -11,9 +11,14 @@ import jakarta.validation.constraints.Size;
 @Schema(
     name = "CreateNotificationRequest",
     description = "Request payload for creating a notification",
-    example = "{\"type\": \"LOW_STOCK\", \"severity\": \"WARNING\", \"title\": \"Low stock in lot LT-204\"}"
+    example = "{\"minimarketId\": \"mm-vida-verde\", \"type\": \"LOW_STOCK\", \"severity\": \"WARNING\", \"title\": \"Low stock in lot LT-204\"}"
 )
 public record CreateNotificationResource(
+    @Schema(description = "Minimarket whose staff receives the notification", example = "mm-vida-verde")
+    @NotBlank(message = "{notification.error.minimarketId.notBlank}")
+    @Size(max = 256, message = "{notification.error.minimarketId.size}")
+    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "{notification.error.minimarketId.pattern}")
+    String minimarketId,
     @Schema(description = "Notification type", example = "LOW_STOCK",
             allowableValues = {"EXPIRATION", "CONSERVATION", "LOW_STOCK", "REPLENISHMENT", "ORDER"})
     @NotBlank(message = "{notification.error.type.notBlank}")

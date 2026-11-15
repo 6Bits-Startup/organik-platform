@@ -2,6 +2,7 @@ package _5bits.organik.platform.communication.application.internal.eventhandlers
 
 import _5bits.organik.platform.communication.application.commandservices.NotificationCommandService;
 import _5bits.organik.platform.communication.domain.model.commands.CreateNotificationCommand;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationTitle;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationType;
 import _5bits.organik.platform.communication.domain.model.valueobjects.Severity;
@@ -30,6 +31,7 @@ public class ShipmentOrderAcceptedEventHandler {
     @EventListener
     public void on(ShipmentOrderAcceptedIntegrationEvent event) {
         var command = new CreateNotificationCommand(
+                new MinimarketId(event.minimarketId()),
                 new NotificationType("ORDER"),
                 new Severity("INFO"),
                 new NotificationTitle("Shipment order %d from supplier %s was accepted".formatted(

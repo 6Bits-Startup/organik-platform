@@ -4,8 +4,9 @@ import _5bits.organik.platform.communication.application.commandservices.Notific
 import _5bits.organik.platform.communication.application.queryservices.NotificationQueryService;
 import _5bits.organik.platform.communication.domain.model.aggregates.Notification;
 import _5bits.organik.platform.communication.domain.model.commands.MarkNotificationAsReadCommand;
-import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsQuery;
+import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsByMinimarketIdQuery;
 import _5bits.organik.platform.communication.domain.model.queries.GetNotificationByIdQuery;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.interfaces.rest.resources.CreateNotificationResource;
 import _5bits.organik.platform.communication.interfaces.rest.resources.NotificationResource;
 import _5bits.organik.platform.communication.interfaces.rest.transform.CreateNotificationCommandFromResourceAssembler;
@@ -25,8 +26,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -87,17 +86,23 @@ public class NotificationsController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all notifications", description = "Retrieves every notification of the minimarket.")
+    @Operation(summary = "Get notifications", description = "Retrieves the notifications of a minimarket filtered by minimarketId.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Notifications retrieved successfully",
-                    content = @Content(schema = @Schema(implementation = NotificationResource.class)))
+                    content = @Content(schema = @Schema(implementation = NotificationResource.class))),
+            @ApiResponse(responseCode = "400", description = "Missing or invalid query parameter")
     })
-    public ResponseEntity<List<NotificationResource>> getAllNotifications() {
-        var notifications = notificationQueryService.handle(new GetAllNotificationsQuery());
-        var notificationResources = notifications.stream()
-                .map(NotificationResourceFromEntityAssembler::toResourceFromEntity)
-                .toList();
-        return ResponseEntity.ok(notificationResources);
+    public ResponseEntity<?> getNotifications(
+            @RequestParam(required = false)
+            @Parameter(description = "Minimarket identifier", example = "mm-vida-verde")
+            String minimarketId
+    ) {
+        if (minimarketId != null) {
+            var notifications = notificationQueryService.handle(new GetAllNotificationsByMinimarketIdQuery(new MinimarketId(minimarketId)));
+            return ResponseEntity.ok(notifications.stream().map(NotificationResourceFromEntityAssembler::toResourceFromEntity).toList());
+        }
+        var error = ApplicationError.validationError("minimarketId", "Query parameter minimarketId is required");
+        return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
     }
 
     @PostMapping("/{notificationId}/readings")

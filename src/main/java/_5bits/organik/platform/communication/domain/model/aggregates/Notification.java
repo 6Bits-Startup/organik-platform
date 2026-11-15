@@ -1,6 +1,7 @@
 package _5bits.organik.platform.communication.domain.model.aggregates;
 
 import _5bits.organik.platform.communication.domain.model.commands.CreateNotificationCommand;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationTitle;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationType;
 import _5bits.organik.platform.communication.domain.model.valueobjects.Severity;
@@ -13,13 +14,14 @@ import java.util.Objects;
 /**
  * Notification aggregate root.
  * <p>
- * Represents an alert shown to the minimarket staff: expirations, conservation problems,
+ * Represents an alert shown to the staff of a minimarket: expirations, conservation problems,
  * low stock, replenishment and order updates.
  * </p>
  */
 @Getter
 public class Notification extends AbstractDomainAggregateRoot<Notification> {
     private Long id;
+    private MinimarketId minimarketId;
     private NotificationType type;
     private Severity severity;
     private NotificationTitle title;
@@ -30,11 +32,13 @@ public class Notification extends AbstractDomainAggregateRoot<Notification> {
     /**
      * Creates a new unread notification.
      *
+     * @param minimarketId minimarket whose staff receives the notification
      * @param type notification type
      * @param severity notification severity
      * @param title notification title
      */
-    public Notification(NotificationType type, Severity severity, NotificationTitle title) {
+    public Notification(MinimarketId minimarketId, NotificationType type, Severity severity, NotificationTitle title) {
+        this.minimarketId = Objects.requireNonNull(minimarketId, "minimarketId must not be null");
         this.type = Objects.requireNonNull(type, "type must not be null");
         this.severity = Objects.requireNonNull(severity, "severity must not be null");
         this.title = Objects.requireNonNull(title, "title must not be null");
@@ -47,7 +51,7 @@ public class Notification extends AbstractDomainAggregateRoot<Notification> {
      * @param command command with the notification data
      */
     public Notification(CreateNotificationCommand command) {
-        this(command.type(), command.severity(), command.title());
+        this(command.minimarketId(), command.type(), command.severity(), command.title());
     }
 
     /**
@@ -62,9 +66,9 @@ public class Notification extends AbstractDomainAggregateRoot<Notification> {
      * @param updatedAt last update date
      * @return the reconstituted notification
      */
-    public static Notification reconstitute(Long id, NotificationType type, Severity severity, NotificationTitle title,
+    public static Notification reconstitute(Long id, MinimarketId minimarketId, NotificationType type, Severity severity, NotificationTitle title,
                                             Boolean isRead, Date createdAt, Date updatedAt) {
-        var notification = new Notification(type, severity, title);
+        var notification = new Notification(minimarketId, type, severity, title);
         notification.id = id;
         notification.isRead = Boolean.TRUE.equals(isRead);
         notification.createdAt = createdAt;

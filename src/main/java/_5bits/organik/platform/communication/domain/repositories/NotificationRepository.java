@@ -1,6 +1,7 @@
 package _5bits.organik.platform.communication.domain.repositories;
 
 import _5bits.organik.platform.communication.domain.model.aggregates.Notification;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,8 @@ public interface NotificationRepository {
     Optional<Notification> findById(Long id);
 
     List<Notification> findAll();
+
+    List<Notification> findAllByMinimarketId(MinimarketId minimarketId);
 
     Notification save(Notification notification);
 

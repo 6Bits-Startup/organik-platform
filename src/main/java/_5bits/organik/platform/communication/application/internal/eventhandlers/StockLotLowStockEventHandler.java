@@ -2,6 +2,7 @@ package _5bits.organik.platform.communication.application.internal.eventhandlers
 
 import _5bits.organik.platform.communication.application.commandservices.NotificationCommandService;
 import _5bits.organik.platform.communication.domain.model.commands.CreateNotificationCommand;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationTitle;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationType;
 import _5bits.organik.platform.communication.domain.model.valueobjects.Severity;
@@ -30,6 +31,7 @@ public class StockLotLowStockEventHandler {
     @EventListener
     public void on(StockLotLowStockIntegrationEvent event) {
         var command = new CreateNotificationCommand(
+                new MinimarketId(event.minimarketId()),
                 new NotificationType("LOW_STOCK"),
                 new Severity("WARNING"),
                 new NotificationTitle("Low stock in lot %s of product %s: %d units left".formatted(

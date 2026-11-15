@@ -9,9 +9,10 @@ package _5bits.organik.platform.communication.interfaces.acl;
 public interface CommunicationContextFacade {
 
     /**
-     * Counts the notifications that have not been read.
+     * Counts the notifications of a minimarket that have not been read.
      *
+     * @param minimarketId minimarket whose staff receives the notifications
      * @return number of unread notifications
      */
-    long countUnreadNotifications();
+    long countUnreadNotifications(String minimarketId);
 }

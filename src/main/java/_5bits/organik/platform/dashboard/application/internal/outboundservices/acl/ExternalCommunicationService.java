@@ -14,7 +14,7 @@ public class ExternalCommunicationService {
         this.communicationContextFacade = communicationContextFacade;
     }
 
-    public long countUnreadNotifications() {
-        return communicationContextFacade.countUnreadNotifications();
+    public long countUnreadNotifications(String minimarketId) {
+        return communicationContextFacade.countUnreadNotifications(minimarketId);
     }
 }

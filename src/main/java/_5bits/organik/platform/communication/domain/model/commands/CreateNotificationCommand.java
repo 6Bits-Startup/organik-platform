@@ -1,15 +1,20 @@
 package _5bits.organik.platform.communication.domain.model.commands;
 
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationTitle;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationType;
 import _5bits.organik.platform.communication.domain.model.valueobjects.Severity;
 
 public record CreateNotificationCommand(
+        MinimarketId minimarketId,
         NotificationType type,
         Severity severity,
         NotificationTitle title
 ) {
     public CreateNotificationCommand {
+        if (minimarketId == null) {
+            throw new IllegalArgumentException("MinimarketId cannot be null");
+        }
         if (type == null) {
             throw new IllegalArgumentException("NotificationType cannot be null");
         }

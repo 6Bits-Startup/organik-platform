@@ -55,7 +55,7 @@ class DashboardQueryServiceImplTest {
         when(externalInventoryService.countStockLotsExpiringWithinDays("mm-vida-verde", 15)).thenReturn(3L);
         when(externalProcurementsService.countPendingShipmentOrders("mm-vida-verde")).thenReturn(1L);
         when(externalRequisitionService.countPendingSupplyRequests("mm-vida-verde")).thenReturn(4L);
-        when(externalCommunicationService.countUnreadNotifications()).thenReturn(5L);
+        when(externalCommunicationService.countUnreadNotifications("mm-vida-verde")).thenReturn(5L);
 
         // Act
         var summary = dashboardQueryService.handle(new GetDashboardSummaryByMinimarketIdQuery(new MinimarketId("mm-vida-verde"), null));

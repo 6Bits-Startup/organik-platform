@@ -2,6 +2,7 @@ package _5bits.organik.platform.communication.application.internal.queryservices
 
 import _5bits.organik.platform.communication.application.queryservices.NotificationQueryService;
 import _5bits.organik.platform.communication.domain.model.aggregates.Notification;
+import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsByMinimarketIdQuery;
 import _5bits.organik.platform.communication.domain.model.queries.GetAllNotificationsQuery;
 import _5bits.organik.platform.communication.domain.model.queries.GetNotificationByIdQuery;
 import _5bits.organik.platform.communication.domain.repositories.NotificationRepository;
@@ -29,5 +30,10 @@ public class NotificationQueryServiceImpl implements NotificationQueryService {
     @Override
     public Optional<Notification> handle(GetNotificationByIdQuery query) {
         return notificationRepository.findById(query.id());
+    }
+
+    @Override
+    public List<Notification> handle(GetAllNotificationsByMinimarketIdQuery query) {
+        return notificationRepository.findAllByMinimarketId(query.minimarketId());
     }
 }

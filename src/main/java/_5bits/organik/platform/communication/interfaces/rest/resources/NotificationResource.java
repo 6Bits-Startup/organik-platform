@@ -11,6 +11,8 @@ import java.util.Date;
 public record NotificationResource(
     @Schema(description = "Notification unique identifier", example = "1")
     Long id,
+    @Schema(description = "Minimarket whose staff receives the notification", example = "mm-vida-verde")
+    String minimarketId,
     @Schema(description = "Notification type", example = "LOW_STOCK")
     String type,
     @Schema(description = "Notification severity", example = "WARNING")

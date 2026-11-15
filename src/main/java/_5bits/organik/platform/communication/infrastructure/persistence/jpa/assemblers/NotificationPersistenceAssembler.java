@@ -25,6 +25,7 @@ public final class NotificationPersistenceAssembler {
         if (entity == null) return null;
         return Notification.reconstitute(
                 entity.getId(),
+                entity.getMinimarketId(),
                 entity.getType(),
                 entity.getSeverity(),
                 entity.getTitle(),
@@ -45,6 +46,7 @@ public final class NotificationPersistenceAssembler {
         if (notification.getId() != null) {
             entity.setId(notification.getId());
         }
+        entity.setMinimarketId(notification.getMinimarketId());
         entity.setType(notification.getType());
         entity.setSeverity(notification.getSeverity());
         entity.setTitle(notification.getTitle());

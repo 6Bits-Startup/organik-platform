@@ -2,6 +2,7 @@ package _5bits.organik.platform.communication.application.internal.eventhandlers
 
 import _5bits.organik.platform.communication.application.commandservices.NotificationCommandService;
 import _5bits.organik.platform.communication.domain.model.commands.CreateNotificationCommand;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationTitle;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationType;
 import _5bits.organik.platform.communication.domain.model.valueobjects.Severity;
@@ -30,6 +31,7 @@ public class StorageReadingOutOfRangeEventHandler {
     @EventListener
     public void on(StorageReadingOutOfRangeIntegrationEvent event) {
         var command = new CreateNotificationCommand(
+                new MinimarketId(event.minimarketId()),
                 new NotificationType("CONSERVATION"),
                 new Severity("CRITICAL"),
                 new NotificationTitle("Storage zone %d reading out of range: %.1f °C, %.1f %%".formatted(

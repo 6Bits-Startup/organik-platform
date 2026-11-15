@@ -1,8 +1,10 @@
 package _5bits.organik.platform.communication.infrastructure.persistence.jpa.entities;
 
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationTitle;
 import _5bits.organik.platform.communication.domain.model.valueobjects.NotificationType;
 import _5bits.organik.platform.communication.domain.model.valueobjects.Severity;
+import _5bits.organik.platform.communication.infrastructure.persistence.jpa.converters.MinimarketIdPersistenceConverter;
 import _5bits.organik.platform.communication.infrastructure.persistence.jpa.converters.NotificationTitlePersistenceConverter;
 import _5bits.organik.platform.communication.infrastructure.persistence.jpa.converters.NotificationTypePersistenceConverter;
 import _5bits.organik.platform.communication.infrastructure.persistence.jpa.converters.SeverityPersistenceConverter;
@@ -25,6 +27,10 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class NotificationPersistenceEntity extends AuditableAbstractPersistenceEntity {
+
+    @Convert(converter = MinimarketIdPersistenceConverter.class)
+    @Column(name = "minimarket_id", nullable = false)
+    private MinimarketId minimarketId;
 
     @Convert(converter = NotificationTypePersistenceConverter.class)
     @Column(name = "type", nullable = false, length = 30)

@@ -1,6 +1,7 @@
 package _5bits.organik.platform.communication.infrastructure.persistence.jpa.adapters;
 
 import _5bits.organik.platform.communication.domain.model.aggregates.Notification;
+import _5bits.organik.platform.communication.domain.model.valueobjects.MinimarketId;
 import _5bits.organik.platform.communication.domain.repositories.NotificationRepository;
 import _5bits.organik.platform.communication.infrastructure.persistence.jpa.assemblers.NotificationPersistenceAssembler;
 import _5bits.organik.platform.communication.infrastructure.persistence.jpa.repositories.NotificationPersistenceRepository;
@@ -37,6 +38,13 @@ public class NotificationRepositoryImpl implements NotificationRepository {
     @Override
     public List<Notification> findAll() {
         return notificationPersistenceRepository.findAll().stream()
+                .map(NotificationPersistenceAssembler::toDomainFromPersistence)
+                .toList();
+    }
+
+    @Override
+    public List<Notification> findAllByMinimarketId(MinimarketId minimarketId) {
+        return notificationPersistenceRepository.findAllByMinimarketId(minimarketId).stream()
                 .map(NotificationPersistenceAssembler::toDomainFromPersistence)
                 .toList();
     }
