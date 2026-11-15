@@ -12,8 +12,10 @@ import _5bits.organik.platform.suppliers.domain.model.queries.GetOfferedProductB
 import _5bits.organik.platform.suppliers.domain.model.valueobjects.SupplierId;
 import _5bits.organik.platform.suppliers.interfaces.rest.resources.CreateOfferedProductResource;
 import _5bits.organik.platform.suppliers.interfaces.rest.resources.OfferedProductResource;
+import _5bits.organik.platform.suppliers.interfaces.rest.resources.UpdateOfferedProductResource;
 import _5bits.organik.platform.suppliers.interfaces.rest.transform.CreateOfferedProductCommandFromResourceAssembler;
 import _5bits.organik.platform.suppliers.interfaces.rest.transform.OfferedProductResourceFromEntityAssembler;
+import _5bits.organik.platform.suppliers.interfaces.rest.transform.UpdateOfferedProductCommandFromResourceAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -104,5 +106,33 @@ public class OfferedProductsController {
         }
         var error = ApplicationError.validationError("supplierId", "Query parameter supplierId is required");
         return ProblemDetailFromApplicationErrorAssembler.toResponseFromApplicationError(error);
+    }
+
+    @PutMapping("/{offeredProductId}")
+    @Operation(summary = "Update offered product", description = "Updates the lot, the availability and the expiration date of an offered product.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Offered product updated successfully",
+                    content = @Content(schema = @Schema(implementation = OfferedProductResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token required"),
+            @ApiResponse(responseCode = "404", description = "Offered product not found"),
+            @ApiResponse(responseCode = "409", description = "Conflict - lot code already offered by the supplier")
+    })
+    public ResponseEntity<?> updateOfferedProduct(
+            @PathVariable
+            @Parameter(description = "Offered product unique identifier", example = "1", required = true)
+            Long offeredProductId,
+            @Valid @RequestBody UpdateOfferedProductResource resource
+    ) {
+        var command = UpdateOfferedProductCommandFromResourceAssembler.toCommandFromResource(offeredProductId, resource);
+        var result = offeredProductCommandService.handle(command)
+                .flatMap(id -> offeredProductQueryService.handle(new GetOfferedProductByIdQuery(id))
+                        .<Result<OfferedProduct, ApplicationError>>map(Result::success)
+                        .orElseGet(() -> Result.failure(ApplicationError.notFound("OfferedProduct", id.toString()))));
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                OfferedProductResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.OK
+        );
     }
 }

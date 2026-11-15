@@ -56,6 +56,11 @@ public class OfferedProductRepositoryImpl implements OfferedProductRepository {
     }
 
     @Override
+    public boolean existsBySupplierIdAndLotCodeAndIdIsNot(SupplierId supplierId, LotCode lotCode, Long id) {
+        return offeredProductPersistenceRepository.existsBySupplierIdAndLotCodeAndIdIsNot(supplierId, lotCode, id);
+    }
+
+    @Override
     public OfferedProduct save(OfferedProduct offeredProduct) {
         var saved = offeredProductPersistenceRepository.save(OfferedProductPersistenceAssembler.toPersistenceFromDomain(offeredProduct));
         var savedOfferedProduct = OfferedProductPersistenceAssembler.toDomainFromPersistence(saved);

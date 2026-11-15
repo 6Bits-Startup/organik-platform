@@ -24,6 +24,8 @@ public interface OfferedProductRepository {
 
     boolean existsBySupplierIdAndLotCode(SupplierId supplierId, LotCode lotCode);
 
+    boolean existsBySupplierIdAndLotCodeAndIdIsNot(SupplierId supplierId, LotCode lotCode, Long id);
+
     OfferedProduct save(OfferedProduct offeredProduct);
 
     boolean existsById(Long id);

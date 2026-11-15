@@ -44,4 +44,19 @@ public class OfferedProduct extends AbstractDomainAggregateRoot<OfferedProduct> 
         offeredProduct.id = id;
         return offeredProduct;
     }
+
+    /**
+     * Updates the lot, the availability and the expiration date of the offered product.
+     *
+     * @param lotCode new lot code
+     * @param availableQuantity new available quantity
+     * @param expiresOn new expiration date of the lot
+     * @return the updated offered product
+     */
+    public OfferedProduct updateInformation(LotCode lotCode, Quantity availableQuantity, LocalDate expiresOn) {
+        this.lotCode = Objects.requireNonNull(lotCode, "lotCode must not be null");
+        this.availableQuantity = Objects.requireNonNull(availableQuantity, "availableQuantity must not be null");
+        this.expiresOn = Objects.requireNonNull(expiresOn, "expiresOn must not be null");
+        return this;
+    }
 }
